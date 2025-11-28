@@ -1,0 +1,17 @@
+[package]
+name = "myrtio_homeassistant"
+version = "0.0.0"
+publish = false
+license = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+serde-json-core = "0.6.0"
+heapless = { version = "0.9", features = ["serde"] }
+myrtio-mqtt = { path = "../myrtio-mqtt" }
+embassy-time = { workspace = true }

@@ -242,16 +242,15 @@ where
         }
 
         let n = self.transport.recv(&mut self.rx_buffer).await?;
-        if n > 0 {
-            if let Some(packet) =
-                packet::decode::<T::Error>(&self.rx_buffer[..n], self.options.version)?
-            {
-                if let MqttPacket::Publish(p) = packet {
-                    // The event is valid for the lifetime 'p of the poll borrow
-                    return Ok(Some(MqttEvent::Publish(p)));
-                }
-            }
+        if n == 0 {
+            return Ok(None);
         }
+
+        let packet = packet::decode::<T::Error>(&self.rx_buffer[..n], self.options.version)?;
+        if let Some(MqttPacket::Publish(packet)) = packet {
+            return Ok(Some(MqttEvent::Publish(packet)));
+        }
+
         Ok(None)
     }
 
