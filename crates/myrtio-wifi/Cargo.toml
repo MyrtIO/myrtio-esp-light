@@ -1,0 +1,18 @@
+[package]
+name = "myrtio_wifi"
+version = "0.1.0"
+publish = false
+license = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+embassy-net = { version = "0.7.0", features = [
+  "dhcpv4",
+  "medium-ethernet",
+  "tcp",
+  "udp",
+] }
+embassy-time = { workspace = true }
+
+[lints]
+workspace = true

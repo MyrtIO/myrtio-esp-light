@@ -1,0 +1,49 @@
+[package]
+name = "myrtio-light-firmware"
+version = "0.0.0"
+publish = false
+license = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+
+[[bin]]
+name = "myrtio-light-firmware"
+path = "./src/main.rs"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+myrtio_wifi = { workspace = true }
+myrtio_light_composer = { workspace = true }
+
+esp-bootloader-esp-idf = { workspace = true }
+esp-hal                = { workspace = true, features = ["esp32", "unstable"] }
+
+embassy-net = { version = "0.7.0", features = [
+  "dhcpv4",
+  "medium-ethernet",
+  "tcp",
+  "udp",
+] }
+embedded-io = { workspace = true }
+embedded-io-async = { workspace = true }
+esp-alloc = { workspace = true }
+critical-section = { workspace = true }
+embassy-executor = { workspace = true }
+embassy-sync = { version = "0.6" }
+embassy-time = { workspace = true }
+static_cell = { workspace = true }
+esp-rtos = { workspace = true, features = ["esp-radio", "embassy", "esp32"] }
+esp-println = { workspace = true, features = ["log-04", "esp32"] }
+esp-backtrace = { workspace = true, features = ["esp32", "println", "panic-handler"] }
+esp-radio = { workspace = true, features = ["esp32", "wifi"] }
+smart-leds = "0.4.0"
+
+esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2", features = ["esp32"] }
+mqtt-async-embedded = { version = "1.0.0", features = ["transport-smoltcp"] }
+rust-mqtt = { version = "0.3.0", default-features = false }
+
+
+[lints]
+workspace = true
