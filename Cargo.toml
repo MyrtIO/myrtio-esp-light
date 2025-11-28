@@ -3,6 +3,7 @@ members = [
   "crates/myrtio-firmware/light",
   "crates/myrtio-light-composer",
   "crates/myrtio-wifi",
+  "crates/myrtio-mqtt",
 ]
 resolver = "2"
 
@@ -15,6 +16,7 @@ license = "MIT"
 myrtio_light_firmware = { path = "crates/myrtio-firmware/light" }
 myrtio_light_composer = { path = "crates/myrtio-light-composer" }
 myrtio_wifi = { path = "crates/myrtio-wifi" }
+myrtio_mqtt = { path = "crates/myrtio-mqtt" }
 
 esp-bootloader-esp-idf = "0.1.0"
 esp-hal = "1.0.0"
@@ -33,6 +35,8 @@ embassy-net = { version = "0.7.0", features = [
     "udp",
 ] }
 
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
 embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
 critical-section = "1.2.0"

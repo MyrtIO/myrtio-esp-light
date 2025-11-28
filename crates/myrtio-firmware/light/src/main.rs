@@ -8,25 +8,21 @@ use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_backtrace as _;
+use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
 use esp_println::println;
 use esp_radio::{
     Controller,
-    wifi::{
-        ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
-    },
+    wifi::{ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState},
 };
-use myrtio_light_composer::{
-    Command, CommandChannel, CommandSender, EffectSlot, LightEngine, effect::RainbowEffect,
-};
+use esp_rtos::embassy::Executor;
+use myrtio_light_composer::{CommandChannel, EffectSlot, LightEngine, effect::RainbowEffect};
+use static_cell::StaticCell;
 
-use rust_mqtt::{
-    client::{client::MqttClient, client_config::ClientConfig},
-    packet::v5::reason_codes::ReasonCode,
-    utils::rng_generator::CountingRng,
-};
-
+mod controller;
 mod hardware;
+
+use controller::mqtt::mqtt_controller_task;
 use hardware::EspLedDriver;
 
 pub mod config;
@@ -71,7 +67,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let wifi_interface = interfaces.sta;
 
-    let config = embassy_net::Config::dhcpv4(Default::default());
+    let net_config = embassy_net::Config::dhcpv4(Default::default());
 
     let rng = Rng::new();
     let seed = (rng.random() as u64) << 32 | rng.random() as u64;
@@ -79,7 +75,7 @@ async fn main(spawner: Spawner) -> ! {
     // Init network stack
     let (stack, runner) = embassy_net::new(
         wifi_interface,
-        config,
+        net_config,
         mk_static!(StackResources<3>, StackResources::<3>::new()),
         seed,
     );
@@ -88,48 +84,50 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(runner)).ok();
 
-    let config = myrtio_wifi::wait_for_connection(stack).await;
-    println!("Got IP: {}", config.address);
+    let ip_config = myrtio_wifi::wait_for_connection(stack).await;
+
+    // Spawn MQTT task
+    spawner
+        .spawn(mqtt_controller_task(stack, LIGHT_CHANNEL.sender()))
+        .ok();
 
     // Initialize light engine with command channel
     let driver = EspLedDriver::<{ config::NUM_LEDS }>::new(peripherals.RMT, peripherals.GPIO25);
-    let mut engine = LightEngine::new(driver, LIGHT_CHANNEL.receiver());
 
-    // Set initial effect
-    engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));
+    static APP_CORE_STACK: static_cell::StaticCell<esp_hal::system::Stack<8192>> =
+        static_cell::StaticCell::new();
+    let app_core_stack = APP_CORE_STACK.init(esp_hal::system::Stack::new());
 
-    // Spawn brightness cycling demo task
-    spawner.spawn(brightness_demo(LIGHT_CHANNEL.sender())).ok();
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+
+    esp_rtos::start_second_core(
+        peripherals.CPU_CTRL,
+        #[cfg(target_arch = "xtensa")]
+        sw_int.software_interrupt0,
+        sw_int.software_interrupt1,
+        app_core_stack,
+        move || {
+            static EXECUTOR: static_cell::StaticCell<esp_rtos::embassy::Executor> =
+                StaticCell::new();
+            let executor = EXECUTOR.init(Executor::new());
+            executor.run(|spawner| {
+                spawner.spawn(light_task(driver)).ok();
+            });
+        },
+    );
 
     loop {
-        engine.tick().await;
+        embassy_time::Timer::after(Duration::from_secs(5)).await;
     }
 }
 
-/// Demo task that cycles through brightness values
 #[embassy_executor::task]
-async fn brightness_demo(sender: CommandSender<{ config::NUM_LEDS }>) {
-    // Brightness values to cycle through: 0 -> 128 -> 255 -> 128 -> repeat
-    let brightness_values: [u8; 4] = [0, 10, 50, 10];
-    let mut index = 0;
+async fn light_task(driver: EspLedDriver<'static, { config::NUM_LEDS }>) {
+    let mut engine = LightEngine::new(driver, LIGHT_CHANNEL.receiver());
+    engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));
 
     loop {
-        let brightness = brightness_values[index];
-        println!("Setting brightness to {}", brightness);
-
-        // Send brightness command with 500ms transition
-        sender
-            .send(Command::SetBrightness {
-                brightness,
-                duration: Duration::from_millis(500),
-            })
-            .await;
-
-        // Wait 2 seconds before next change
-        Timer::after(Duration::from_secs(2)).await;
-
-        // Move to next value
-        index = (index + 1) % brightness_values.len();
+        engine.tick().await;
     }
 }
 
@@ -155,7 +153,7 @@ async fn connection(mut controller: WifiController<'static>) {
         }
 
         match controller.connect_async().await {
-            Ok(_) => println!("Wifi connected, "),
+            Ok(_) => println!("Wifi connected"),
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
                 Timer::after(Duration::from_millis(5000)).await

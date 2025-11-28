@@ -2,6 +2,7 @@
 //!
 //! Uses RMT peripheral and SmartLeds for WS2812B/NeoPixel LEDs.
 
+use esp_hal::xtensa_lx::interrupt;
 use esp_hal::{gpio::interconnect::PeripheralOutput, peripherals::RMT, rmt::Rmt, time::Rate};
 use esp_hal_smartled::{SmartLedsAdapter, buffer_size, smart_led_buffer};
 use smart_leds::{RGB, SmartLedsWrite};
@@ -42,6 +43,8 @@ impl<'a, const N: usize> EspLedDriver<'a, N> {
 
 impl<const N: usize> LedDriver<N> for EspLedDriver<'static, N> {
     fn write(&mut self, colors: &[RGB<u8>; N]) {
-        let _ = self.adapter.write(colors.iter().cloned());
+        interrupt::free(|| {
+            let _ = self.adapter.write(colors.iter().cloned());
+        });
     }
 }
