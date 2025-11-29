@@ -181,8 +181,9 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
             shared.set_brightness(self.target_brightness);
             shared.set_on(self.state != EngineState::Stopped);
             shared.set_effect(self.current_effect.effect_id());
-            let (r, g, b) = self.current_effect.color();
-            shared.set_rgb(r, g, b);
+            if let Some((r, g, b)) = self.current_effect.color_if_supported() {
+                shared.set_rgb(r, g, b);
+            }
         }
     }
 
@@ -303,6 +304,9 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
                 Command::SetColor { r, g, b, duration } => {
                     self.current_effect
                         .set_color_rgb(r, g, b, duration);
+                    if let Some(shared) = self.shared_state {
+                        shared.set_rgb(r, g, b);
+                    }
                 }
                 Command::Stop(duration) => {
                     self.stop(duration);

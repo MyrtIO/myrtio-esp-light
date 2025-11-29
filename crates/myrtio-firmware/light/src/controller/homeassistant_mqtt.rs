@@ -69,8 +69,6 @@ fn handle_light_command(cmd: LightCommand<'_>) {
         let Some(sender) = borrowed.as_ref() else {
             return;
         };
-        let current_effect = LIGHT_STATE.effect();
-
         // Handle effect change
         if let Some(effect) = cmd.effect {
             match effect {
@@ -91,18 +89,12 @@ fn handle_light_command(cmd: LightCommand<'_>) {
 
         // Handle color change
         if let Some(color) = cmd.color {
-            if current_effect == EffectId::Static {
-                let _ = sender.try_send(Command::SetColor {
-                    r: color.r,
-                    g: color.g,
-                    b: color.b,
-                    duration: Duration::from_millis(COLOR_TRANSITION_MS),
-                });
-            } else {
-                let _ = sender.try_send(Command::SwitchEffect(EffectSlot::Static(
-                    StaticColorEffect::from_rgb(color.r, color.g, color.b),
-                )));
-            }
+            let _ = sender.try_send(Command::SetColor {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                duration: Duration::from_millis(COLOR_TRANSITION_MS),
+            });
         }
 
         // Handle brightness change (save target for restore on turn-on)

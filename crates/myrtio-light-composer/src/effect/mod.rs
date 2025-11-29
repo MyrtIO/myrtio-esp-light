@@ -89,7 +89,7 @@ impl<const N: usize> EffectSlot<N> {
         }
     }
 
-    /// Get the current color (for static effect)
+    /// Get the current color if the effect supports colors.
     pub fn color(&self) -> (u8, u8, u8) {
         match self {
             Self::Static(effect) => {
@@ -100,9 +100,15 @@ impl<const N: usize> EffectSlot<N> {
         }
     }
 
+    /// Return the current color only when the effect actually exposes one.
+    pub fn color_if_supported(&self) -> Option<(u8, u8, u8)> {
+        match self {
+            Self::Static(_) => Some(self.color()),
+            _ => None,
+        }
+    }
+
     /// Update the color of the current effect with optional transition.
-    ///
-    /// No-ops when the active effect does not support color updates.
     pub fn set_color(&mut self, color: RGB<u8>, duration: Duration) {
         if let Self::Static(effect) = self {
             effect.set_color(color, duration);
