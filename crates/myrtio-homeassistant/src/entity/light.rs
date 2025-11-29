@@ -70,6 +70,8 @@ pub struct LightEntity<'a> {
     pub min_mireds: Option<u16>,
     /// Maximum color temperature in mireds
     pub max_mireds: Option<u16>,
+    /// Flag that defines if entity works in optimistic mode.
+    pub optimistic: bool,
 }
 
 impl LightEntity<'_> {
@@ -222,6 +224,7 @@ impl<'a> LightBuilder<'a> {
                 effects: self.effects,
                 min_mireds: self.min_mireds,
                 max_mireds: self.max_mireds,
+                optimistic: true,
             },
             provide_state: self.provide_state.expect("provide_state callback is required"),
             on_command: self.on_command.expect("on_command callback is required"),

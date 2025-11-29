@@ -49,6 +49,8 @@ struct LightDiscoveryConfig<'a, 'b> {
     min_mireds: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_mireds: Option<u16>,
+    #[serde(skip_serializing_if = "is_false")]
+    optimistic: bool,
 }
 
 /// Configuration for number discovery message serialization
@@ -226,6 +228,7 @@ where
             supported_color_modes: color_modes_strs.as_slice(),
             min_mireds: entity.min_mireds,
             max_mireds: entity.max_mireds,
+            optimistic: entity.optimistic,
         };
 
         // Serialize to buffer
