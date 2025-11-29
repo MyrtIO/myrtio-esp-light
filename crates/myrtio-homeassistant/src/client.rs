@@ -372,12 +372,9 @@ where
         loop {
             match select(self.poll_internal(), ticker.next()).await {
                 Either::First(result) => {
-                    if result? {
-                        // Command was handled, publish updated state
-                        self.publish_states().await?;
-                    }
+                    result?;
                 }
-                Either::Second(_) => {
+                Either::Second(()) => {
                     // Periodic: re-announce and publish state
                     self.announce_all().await?;
                     self.publish_states().await?;

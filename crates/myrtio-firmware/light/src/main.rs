@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
+#[macro_use]
 pub mod config;
 mod controller;
 mod hardware;
@@ -42,7 +43,7 @@ macro_rules! mk_static {
 }
 
 /// Static command channel for light engine
-static LIGHT_CHANNEL: CommandChannel<{ config::NUM_LEDS }> = Channel::new();
+static LIGHT_CHANNEL: CommandChannel<{ config::LIGHT_LED_COUNT }> = Channel::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
@@ -94,7 +95,7 @@ async fn main(spawner: Spawner) -> ! {
         .ok();
 
     // Initialize light engine with command channel
-    let driver = EspLedDriver::<{ config::NUM_LEDS }>::new(peripherals.RMT, peripherals.GPIO25);
+    let driver = EspLedDriver::<{ config::LIGHT_LED_COUNT }>::new(peripherals.RMT, led_gpio!(peripherals));
 
     static APP_CORE_STACK: static_cell::StaticCell<esp_hal::system::Stack<8192>> =
         static_cell::StaticCell::new();
@@ -124,7 +125,7 @@ async fn main(spawner: Spawner) -> ! {
 }
 
 #[embassy_executor::task]
-async fn light_task(driver: EspLedDriver<'static, { config::NUM_LEDS }>) {
+async fn light_task(driver: EspLedDriver<'static, { config::LIGHT_LED_COUNT }>) {
     let mut engine =
         LightEngine::new(driver, LIGHT_CHANNEL.receiver()).with_shared_state(&LIGHT_STATE);
     engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));

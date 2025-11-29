@@ -17,7 +17,7 @@ use myrtio_mqtt::{
 };
 use myrtio_netutils::resolve_host;
 
-use crate::config::{MQTT_HOST, MQTT_PORT, NUM_LEDS};
+use crate::config::{MQTT_HOST, MQTT_PORT, LIGHT_LED_COUNT};
 use crate::state::LIGHT_STATE;
 
 /// Static device definition for Home Assistant
@@ -35,7 +35,7 @@ const EFFECT_RAINBOW: &str = "rainbow";
 static TARGET_BRIGHTNESS: AtomicU8 = AtomicU8::new(255);
 
 /// Command sender (protected by mutex)
-static COMMAND_SENDER: Mutex<CriticalSectionRawMutex, RefCell<Option<CommandSender<NUM_LEDS>>>> =
+static COMMAND_SENDER: Mutex<CriticalSectionRawMutex, RefCell<Option<CommandSender<LIGHT_LED_COUNT>>>> =
     Mutex::new(RefCell::new(None));
 
 /// Get effect name from EffectId
@@ -121,7 +121,7 @@ fn handle_light_command(cmd: LightCommand<'_>) {
 
 /// MQTT task that integrates with Home Assistant
 #[embassy_executor::task]
-pub async fn mqtt_controller_task(stack: Stack<'static>, sender: CommandSender<NUM_LEDS>) {
+pub async fn mqtt_controller_task(stack: Stack<'static>, sender: CommandSender<LIGHT_LED_COUNT>) {
     COMMAND_SENDER.lock(|cell| {
         cell.borrow_mut().replace(sender);
     });
