@@ -31,6 +31,9 @@ static DEVICE: Device<'static> = Device::builder(config::DEVICE_ID)
 const EFFECT_STATIC: &str = "static";
 const EFFECT_RAINBOW: &str = "rainbow";
 
+/// Duration (ms) for crossfading between colors
+const COLOR_TRANSITION_MS: u64 = 300;
+
 /// Target brightness to restore when turning on (not current display brightness)
 static TARGET_BRIGHTNESS: AtomicU8 = AtomicU8::new(255);
 
@@ -66,6 +69,7 @@ fn handle_light_command(cmd: LightCommand<'_>) {
         let Some(sender) = borrowed.as_ref() else {
             return;
         };
+        let current_effect = LIGHT_STATE.effect();
 
         // Handle effect change
         if let Some(effect) = cmd.effect {
@@ -87,9 +91,18 @@ fn handle_light_command(cmd: LightCommand<'_>) {
 
         // Handle color change
         if let Some(color) = cmd.color {
-            let _ = sender.try_send(Command::SwitchEffect(EffectSlot::Static(
-                StaticColorEffect::from_rgb(color.r, color.g, color.b),
-            )));
+            if current_effect == EffectId::Static {
+                let _ = sender.try_send(Command::SetColor {
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                    duration: Duration::from_millis(COLOR_TRANSITION_MS),
+                });
+            } else {
+                let _ = sender.try_send(Command::SwitchEffect(EffectSlot::Static(
+                    StaticColorEffect::from_rgb(color.r, color.g, color.b),
+                )));
+            }
         }
 
         // Handle brightness change (save target for restore on turn-on)

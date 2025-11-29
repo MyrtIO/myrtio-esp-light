@@ -99,4 +99,18 @@ impl<const N: usize> EffectSlot<N> {
             _ => (255, 255, 255),
         }
     }
+
+    /// Update the color of the current effect with optional transition.
+    ///
+    /// No-ops when the active effect does not support color updates.
+    pub fn set_color(&mut self, color: RGB<u8>, duration: Duration) {
+        if let Self::Static(effect) = self {
+            effect.set_color(color, duration);
+        }
+    }
+
+    /// Convenience wrapper for setting the effect color from RGB values.
+    pub fn set_color_rgb(&mut self, r: u8, g: u8, b: u8, duration: Duration) {
+        self.set_color(RGB { r, g, b }, duration);
+    }
 }

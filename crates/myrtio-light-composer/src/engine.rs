@@ -40,6 +40,13 @@ pub enum Command<const N: usize> {
     SwitchEffect(EffectSlot<N>),
     /// Switch effect instantly (no fade)
     SwitchEffectInstant(EffectSlot<N>),
+    /// Update effect color without re-running brightness fade
+    SetColor {
+        r: u8,
+        g: u8,
+        b: u8,
+        duration: Duration,
+    },
     /// Stop the engine (fade out)
     Stop(Duration),
     /// Start the engine (fade in)
@@ -292,6 +299,10 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
                 }
                 Command::SwitchEffectInstant(effect) => {
                     self.switch_effect_instant(effect);
+                }
+                Command::SetColor { r, g, b, duration } => {
+                    self.current_effect
+                        .set_color_rgb(r, g, b, duration);
                 }
                 Command::Stop(duration) => {
                     self.stop(duration);
