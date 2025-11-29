@@ -32,7 +32,7 @@ pub use engine::{
 };
 
 // Processor exports
-pub use processor::OutputProcessor;
+pub use processor::{ColorCorrection, OutputProcessor};
 
 // State exports
 pub use state::{EffectId, SharedState};

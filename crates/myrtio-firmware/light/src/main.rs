@@ -22,6 +22,7 @@ use esp_radio::{
     wifi::{ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState},
 };
 use esp_rtos::embassy::Executor;
+use myrtio_light_composer::ColorCorrection;
 use myrtio_light_composer::{CommandChannel, EffectSlot, LightEngine, effect::RainbowEffect};
 use static_cell::StaticCell;
 
@@ -127,8 +128,9 @@ async fn main(spawner: Spawner) -> ! {
 
 #[embassy_executor::task]
 async fn light_task(driver: EspLedDriver<'static, { config::LIGHT_LED_COUNT }>) {
-    let mut engine =
-        LightEngine::new(driver, LIGHT_CHANNEL.receiver()).with_shared_state(&LIGHT_STATE);
+    let mut engine = LightEngine::new(driver, LIGHT_CHANNEL.receiver())
+        .with_shared_state(&LIGHT_STATE)
+        .with_color_correction(ColorCorrection::from_rgb(config::LIGHT_COLOR_CORRECTION));
     engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));
     engine.set_brightness(50, Duration::from_millis(50));
 

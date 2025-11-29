@@ -10,8 +10,12 @@ rust-version = { workspace = true }
 default = []
 v5 = []
 defmt = ["dep:defmt"]
+log = ["dep:log"]
+esp-println = ["dep:esp-println"]
 
 [dependencies]
+log = { version = "0.4", optional = true }
+esp-println = { workspace = true, optional = true, features = ["esp32"] }
 embedded-hal = { workspace = true }
 embedded-hal-async = { workspace = true }
 embedded-io-async = { workspace = true }

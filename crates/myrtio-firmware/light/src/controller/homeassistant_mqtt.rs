@@ -17,14 +17,14 @@ use myrtio_mqtt::{
 };
 use myrtio_netutils::resolve_host;
 
-use crate::config::{MQTT_HOST, MQTT_PORT, LIGHT_LED_COUNT};
+use crate::config::{self, LIGHT_LED_COUNT, MQTT_HOST, MQTT_PORT};
 use crate::state::LIGHT_STATE;
 
 /// Static device definition for Home Assistant
-static DEVICE: Device<'static> = Device::builder("myrt_rs")
-    .name("MyrtIO RS Demo")
-    .manufacturer("Myrt")
-    .model("ESP32")
+static DEVICE: Device<'static> = Device::builder(config::DEVICE_ID)
+    .name(config::DEVICE_NAME)
+    .manufacturer(config::DEVICE_MANUFACTURER)
+    .model(config::DEVICE_MODEL)
     .build();
 
 /// Effect names
@@ -156,7 +156,7 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
     println!("TCP connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
-    let options = MqttOptions::new("myrt-light-rs")
+    let options = MqttOptions::new(config::DEVICE_ID)
         .with_keep_alive(Duration::from_secs(30));
     let mqtt: MqttClient<_, 8, 512> = MqttClient::new(transport, options);
 
@@ -172,7 +172,7 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
             .color_modes(&[ColorMode::Rgb])
             .provide_state(get_light_state)
             .on_command(handle_light_command)
-            .effects(&["static", "rainbow"])
+            .effects(&[EFFECT_STATIC, EFFECT_RAINBOW])
             .build(),
     )
     .map_err(|e| {

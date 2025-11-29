@@ -149,13 +149,10 @@ impl<'a> EncodePacket for Connect<'a> {
         let remaining_len_pos = cursor;
         cursor += 4;
         let content_start = cursor;
-        let protocol_name = if version == MqttVersion::V5 {
-            "MQTT"
-        } else {
-            "MQIsdp"
-        };
-        cursor += write_utf8_string(&mut buf[cursor..], protocol_name)?;
-        buf[cursor] = if version == MqttVersion::V5 { 5 } else { 3 };
+        // Protocol name is "MQTT" for both v3.1.1 and v5
+        cursor += write_utf8_string(&mut buf[cursor..], "MQTT")?;
+        // Protocol level: 4 for MQTT 3.1.1, 5 for MQTT 5.0
+        buf[cursor] = if version == MqttVersion::V5 { 5 } else { 4 };
         cursor += 1;
         let mut flags = 0;
         if self.clean_session {

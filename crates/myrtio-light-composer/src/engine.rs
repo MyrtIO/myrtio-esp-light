@@ -11,6 +11,8 @@
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Receiver, Sender}};
 use embassy_time::{Duration, Instant, Timer};
 
+use crate::ColorCorrection;
+
 use super::{
     driver::LedDriver,
     effect::EffectSlot,
@@ -156,6 +158,13 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     #[must_use]
     pub fn with_shared_state(mut self, state: &'a SharedState) -> Self {
         self.shared_state = Some(state);
+        self
+    }
+
+    /// Set the output processor
+    #[must_use]
+    pub fn with_color_correction(mut self, color_correction: ColorCorrection) -> Self {
+        self.processor.color_correction = color_correction;
         self
     }
 

@@ -112,6 +112,8 @@ pub enum ProtocolError {
     InvalidPacketType(u8),
     /// The server sent an invalid or unexpected response.
     InvalidResponse,
+    /// The connection was closed by the broker.
+    ConnectionClosed,
     /// A packet was received that was not correctly formed.
     MalformedPacket,
     /// The payload of a message exceeds the maximum allowable size.
