@@ -6,7 +6,7 @@
 use crate::error::{MqttError, ProtocolError};
 use crate::packet::{self, Connect, EncodePacket, MqttPacket, PingReq, Publish, QoS, Subscribe};
 use crate::transport::{self, MqttTransport};
-use embassy_time::{Duration, Instant};
+use embassy_time::{Duration, Instant, Timer};
 
 /// Represents the MQTT protocol version used by the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -262,21 +262,52 @@ where
             return Err(MqttError::NotConnected);
         }
 
-        if self.last_tx_time.elapsed() >= self.options.keep_alive {
-            self._send_packet(PingReq).await?;
+        let elapsed = self.last_tx_time.elapsed();
+        let remaining = if elapsed >= self.options.keep_alive {
+            Duration::from_millis(0)
+        } else {
+            self.options.keep_alive - elapsed
+        };
+
+        enum PollDecision {
+            Received(usize),
+            KeepAlive,
         }
 
-        let n = self.transport.recv(&mut self.rx_buffer).await?;
-        if n == 0 {
-            return Ok(None);
-        }
+        let decision = {
+            let recv_fut = self.transport.recv(&mut self.rx_buffer);
+            let timer_fut = Timer::after(remaining);
+            match futures::future::select(core::pin::pin!(recv_fut), core::pin::pin!(timer_fut)).await {
+                futures::future::Either::Left((result, _)) => result.map(PollDecision::Received),
+                futures::future::Either::Right(((), _pending_recv)) => {
+                    Ok(PollDecision::KeepAlive)
+                }
+            }
+        }?;
 
-        let packet = packet::decode::<T::Error>(&self.rx_buffer[..n], self.options.version)?;
-        if let Some(MqttPacket::Publish(packet)) = packet {
-            return Ok(Some(MqttEvent::Publish(packet)));
-        }
+        match decision {
+            PollDecision::Received(n) => {
+                if n == 0 {
+                    return Ok(None);
+                }
 
-        Ok(None)
+                let packet =
+                    packet::decode::<T::Error>(&self.rx_buffer[..n], self.options.version)?;
+                if let Some(MqttPacket::Publish(packet)) = packet {
+                    return Ok(Some(MqttEvent::Publish(packet)));
+                }
+
+                Ok(None)
+            }
+            PollDecision::KeepAlive => {
+                #[cfg(feature = "esp-println")]
+                esp_println::println!("MQTT: Sending PINGREQ");
+                self._send_packet(PingReq).await?;
+                #[cfg(feature = "esp-println")]
+                esp_println::println!("MQTT: PINGREQ sent");
+                Ok(None)
+            }
+        }
     }
 
     fn get_next_packet_id(&mut self) -> u16 {

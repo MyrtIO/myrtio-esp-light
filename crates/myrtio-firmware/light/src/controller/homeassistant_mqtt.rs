@@ -162,7 +162,7 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
     let options = MqttOptions::new(config::DEVICE_ID)
-        .with_keep_alive(Duration::from_secs(30));
+        .with_keep_alive(Duration::from_secs(15));
     let mqtt: MqttClient<_, 8, 512> = MqttClient::new(transport, options);
 
     // Create HA client and add entities
