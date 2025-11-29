@@ -6,16 +6,17 @@
 //! ## Features
 //!
 //! - **`no_std` & `no_alloc`:** Designed for embedded systems using `heapless` collections
-//! - **Builder Pattern:** Fluent API for configuring entities
-//! - **Callback-based:** Register entities with state providers and command handlers
+//! - **Builder Pattern:** Fluent API for configuring entities with callbacks
+//! - **Device-centric:** Create entities from device, namespace included
 //! - **Automatic Discovery:** Publishes Home Assistant MQTT discovery configs
 //!
 //! ## Example
 //!
 //! ```rust,ignore
-//! use myrtio_homeassistant::{Device, HomeAssistantClient, LightEntity, LightState, LightCommand};
+//! use myrtio_homeassistant::{Device, HomeAssistantClient, LightState, LightCommand};
 //!
 //! static DEVICE: Device = Device::builder("myrt_light_01")
+//!     .namespace("myrtlight")
 //!     .name("Myrt Light")
 //!     .manufacturer("Myrtio")
 //!     .build();
@@ -33,14 +34,15 @@
 //! }
 //!
 //! async fn run(mqtt: MqttClient<...>) {
-//!     let mut ha = HomeAssistantClient::<_, 8, 512, 4, 4>::new(mqtt, "myrtlight");
+//!     let mut ha = HomeAssistantClient::<_, 8, 512, 4, 4>::new(&DEVICE, mqtt);
 //!
-//!     let light = LightEntity::builder("main", &DEVICE)
+//!     ha.add_light(DEVICE.light("main")
 //!         .name("Main Light")
 //!         .brightness(true)
-//!         .build();
+//!         .provide_state(get_light_state)
+//!         .on_command(handle_light_command)
+//!         .build()).unwrap();
 //!
-//!     ha.register_light(light, get_light_state, handle_light_command).unwrap();
 //!     ha.announce_all().await.unwrap();
 //!
 //!     loop {
@@ -61,6 +63,6 @@ pub mod topic;
 // Re-export key types for convenient access
 pub use client::HomeAssistantClient;
 pub use device::{Device, DeviceBuilder};
-pub use entity::light::{ColorMode, LightBuilder, LightCommand, LightEntity, LightState, RgbColor};
-pub use entity::number::{NumberBuilder, NumberEntity, NumberState};
+pub use entity::light::{ColorMode, LightBuilder, LightCommand, LightEntity, LightRegistration, LightState, RgbColor};
+pub use entity::number::{NumberBuilder, NumberEntity, NumberRegistration, NumberState};
 pub use error::HaError;

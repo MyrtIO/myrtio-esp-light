@@ -21,6 +21,7 @@ pub struct ErrorPlaceHolder;
 ///
 /// This trait abstracts over any reliable, ordered, stream-based communication channel.
 // `async fn` in traits is now stable in Rust 2024, so `#[async_trait]` is not needed.
+#[allow(async_fn_in_trait)]
 pub trait MqttTransport {
     /// The error type returned by the transport.
     type Error: core::fmt::Debug;

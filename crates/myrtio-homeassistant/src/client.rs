@@ -2,6 +2,8 @@
 //!
 //! Wraps an MqttClient and provides high-level Home Assistant integration.
 
+use embassy_futures::select::{select, Either};
+use embassy_time::{Duration, Ticker};
 use heapless::{String, Vec};
 use myrtio_mqtt::{
     client::{MqttClient, MqttEvent},
@@ -11,9 +13,10 @@ use myrtio_mqtt::{
 use serde::Serialize;
 
 use crate::{
+    device::Device,
     entity::{
-        light::{LightCommand, LightEntity, LightState},
-        number::NumberEntity,
+        light::{LightCommand, LightEntity, LightRegistration, LightState},
+        number::{NumberEntity, NumberRegistration},
     },
     error::HaError,
 };
@@ -31,7 +34,7 @@ struct LightDiscoveryConfig<'a, 'b> {
     schema: &'a str,
     state_topic: &'b str,
     command_topic: &'b str,
-    device: &'a crate::device::Device<'a>,
+    device: &'a Device<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     icon: Option<&'a str>,
     #[serde(skip_serializing_if = "is_false")]
@@ -55,7 +58,7 @@ struct NumberDiscoveryConfig<'a, 'b> {
     unique_id: &'b str,
     state_topic: &'b str,
     command_topic: &'b str,
-    device: &'a crate::device::Device<'a>,
+    device: &'a Device<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     icon: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,24 +73,24 @@ struct NumberDiscoveryConfig<'a, 'b> {
     mode: Option<&'a str>,
 }
 
-/// Registration for a light entity with callbacks
-pub struct LightRegistration<'a> {
-    pub entity: LightEntity<'a>,
-    pub get_state: fn() -> LightState<'static>,
-    pub handle_command: fn(LightCommand<'_>),
+/// Internal storage for light registration
+struct LightEntry<'a> {
+    entity: LightEntity<'a>,
+    provide_state: fn() -> LightState<'static>,
+    on_command: fn(LightCommand<'_>),
 }
 
-/// Registration for a number entity with callbacks
-pub struct NumberRegistration<'a> {
-    pub entity: NumberEntity<'a>,
-    pub get_state: fn() -> i32,
-    pub handle_command: fn(i32),
+/// Internal storage for number registration
+struct NumberEntry<'a> {
+    entity: NumberEntity<'a>,
+    provide_state: fn() -> i32,
+    on_command: fn(i32),
 }
 
 /// Home Assistant MQTT Client
 ///
 /// Wraps an MqttClient and provides high-level operations for:
-/// - Registering entities with callbacks
+/// - Adding entities with callbacks
 /// - Publishing discovery configs
 /// - Publishing entity states
 /// - Handling incoming commands
@@ -102,9 +105,8 @@ pub struct HomeAssistantClient<
     T: MqttTransport,
 {
     mqtt: MqttClient<'a, T, MAX_TOPICS, BUF_SIZE>,
-    namespace: &'a str,
-    lights: Vec<LightRegistration<'a>, MAX_LIGHTS>,
-    numbers: Vec<NumberRegistration<'a>, MAX_NUMBERS>,
+    lights: Vec<LightEntry<'a>, MAX_LIGHTS>,
+    numbers: Vec<NumberEntry<'a>, MAX_NUMBERS>,
     buf: [u8; BUF_SIZE],
 }
 
@@ -120,59 +122,38 @@ where
     T: MqttTransport,
     T::Error: TransportError,
 {
-    /// Create a new Home Assistant client wrapping the given MQTT client
+    /// Create a new Home Assistant client from a Device and MQTT client
     ///
     /// # Arguments
+    /// * `device` - The device (namespace is taken from device)
     /// * `mqtt` - The underlying MQTT client
-    /// * `namespace` - Base namespace for topics (e.g., "myrtlight")
-    pub fn new(mqtt: MqttClient<'a, T, MAX_TOPICS, BUF_SIZE>, namespace: &'a str) -> Self {
+    pub fn new(_device: &'a Device<'a>, mqtt: MqttClient<'a, T, MAX_TOPICS, BUF_SIZE>) -> Self {
         Self {
             mqtt,
-            namespace,
             lights: Vec::new(),
             numbers: Vec::new(),
             buf: [0u8; BUF_SIZE],
         }
     }
 
-    /// Register a light entity with state and command callbacks
-    ///
-    /// # Arguments
-    /// * `entity` - The light entity configuration
-    /// * `get_state` - Function to get current state for publishing
-    /// * `handle_command` - Function to handle incoming commands
-    pub fn register_light(
-        &mut self,
-        entity: LightEntity<'a>,
-        get_state: fn() -> LightState<'static>,
-        handle_command: fn(LightCommand<'_>),
-    ) -> Result<(), HaError<T::Error>> {
+    /// Add a light entity registration
+    pub fn add_light(&mut self, reg: LightRegistration<'a>) -> Result<(), HaError<T::Error>> {
         self.lights
-            .push(LightRegistration {
-                entity,
-                get_state,
-                handle_command,
+            .push(LightEntry {
+                entity: reg.entity,
+                provide_state: reg.provide_state,
+                on_command: reg.on_command,
             })
             .map_err(|_| HaError::MaxEntitiesReached)
     }
 
-    /// Register a number entity with state and command callbacks
-    ///
-    /// # Arguments
-    /// * `entity` - The number entity configuration
-    /// * `get_state` - Function to get current value for publishing
-    /// * `handle_command` - Function to handle incoming value changes
-    pub fn register_number(
-        &mut self,
-        entity: NumberEntity<'a>,
-        get_state: fn() -> i32,
-        handle_command: fn(i32),
-    ) -> Result<(), HaError<T::Error>> {
+    /// Add a number entity registration
+    pub fn add_number(&mut self, reg: NumberRegistration<'a>) -> Result<(), HaError<T::Error>> {
         self.numbers
-            .push(NumberRegistration {
-                entity,
-                get_state,
-                handle_command,
+            .push(NumberEntry {
+                entity: reg.entity,
+                provide_state: reg.provide_state,
+                on_command: reg.on_command,
             })
             .map_err(|_| HaError::MaxEntitiesReached)
     }
@@ -181,7 +162,7 @@ where
     ///
     /// Publishes discovery configs and subscribes to command topics
     pub async fn announce_all(&mut self) -> Result<(), HaError<T::Error>> {
-        // Announce lights - collect indices first to avoid borrow issues
+        // Announce lights
         let light_count = self.lights.len();
         for i in 0..light_count {
             let entity = self.lights[i].entity.clone();
@@ -202,8 +183,8 @@ where
     async fn announce_light(&mut self, entity: &LightEntity<'a>) -> Result<(), HaError<T::Error>> {
         // Build strings for serialization
         let unique_id: String<64> = entity.unique_id();
-        let state_topic: String<128> = entity.state_topic(self.namespace);
-        let command_topic: String<128> = entity.command_topic(self.namespace);
+        let state_topic: String<128> = entity.state_topic();
+        let command_topic: String<128> = entity.command_topic();
         let config_topic: String<128> = entity.config_topic();
 
         // Build color modes list
@@ -252,8 +233,8 @@ where
     ) -> Result<(), HaError<T::Error>> {
         // Build strings for serialization
         let unique_id: String<64> = entity.unique_id();
-        let state_topic: String<128> = entity.state_topic(self.namespace);
-        let command_topic: String<128> = entity.command_topic(self.namespace);
+        let state_topic: String<128> = entity.state_topic();
+        let command_topic: String<128> = entity.command_topic();
         let config_topic: String<128> = entity.config_topic();
 
         let config = NumberDiscoveryConfig {
@@ -290,14 +271,14 @@ where
 
     /// Publish current states for all registered entities
     ///
-    /// Calls each entity's get_state callback and publishes the result
+    /// Calls each entity's provide_state callback and publishes the result
     pub async fn publish_states(&mut self) -> Result<(), HaError<T::Error>> {
         // Publish light states
         let light_count = self.lights.len();
         for i in 0..light_count {
-            let reg = &self.lights[i];
-            let state = (reg.get_state)();
-            let topic: String<128> = reg.entity.state_topic(self.namespace);
+            let entry = &self.lights[i];
+            let state = (entry.provide_state)();
+            let topic: String<128> = entry.entity.state_topic();
 
             let json = serde_json_core::to_slice(&state, &mut self.buf)
                 .map_err(|_| HaError::Serialization)?;
@@ -310,9 +291,9 @@ where
         // Publish number states
         let number_count = self.numbers.len();
         for i in 0..number_count {
-            let reg = &self.numbers[i];
-            let value = (reg.get_state)();
-            let topic: String<128> = reg.entity.state_topic(self.namespace);
+            let entry = &self.numbers[i];
+            let value = (entry.provide_state)();
+            let topic: String<128> = entry.entity.state_topic();
 
             // Format number to buffer
             let len = format_i32(value, &mut self.buf);
@@ -328,32 +309,32 @@ where
     /// Poll for incoming messages and dispatch to handlers
     ///
     /// Returns Ok(true) if a command was processed, Ok(false) if no message
-    pub async fn poll(&mut self) -> Result<bool, HaError<T::Error>> {
+    async fn poll_internal(&mut self) -> Result<bool, HaError<T::Error>> {
         let event = self.mqtt.poll().await?;
 
         if let Some(MqttEvent::Publish(msg)) = event {
             // Try to match against light command topics
-            for reg in &self.lights {
-                let cmd_topic: String<128> = reg.entity.command_topic(self.namespace);
+            for entry in &self.lights {
+                let cmd_topic: String<128> = entry.entity.command_topic();
                 if msg.topic == cmd_topic.as_str() {
                     // Parse the command JSON
                     if let Ok((cmd, _)) =
                         serde_json_core::from_slice::<LightCommand<'_>>(msg.payload)
                     {
-                        (reg.handle_command)(cmd);
+                        (entry.on_command)(cmd);
                         return Ok(true);
                     }
                 }
             }
 
             // Try to match against number command topics
-            for reg in &self.numbers {
-                let cmd_topic: String<128> = reg.entity.command_topic(self.namespace);
+            for entry in &self.numbers {
+                let cmd_topic: String<128> = entry.entity.command_topic();
                 if msg.topic == cmd_topic.as_str() {
                     // Parse the number value
                     if let Ok(value_str) = core::str::from_utf8(msg.payload) {
                         if let Ok(value) = value_str.trim().parse::<i32>() {
-                            (reg.handle_command)(value);
+                            (entry.on_command)(value);
                             return Ok(true);
                         }
                     }
@@ -362,6 +343,47 @@ where
         }
 
         Ok(false)
+    }
+
+    /// Run the Home Assistant client
+    ///
+    /// This method:
+    /// 1. Connects to the MQTT broker
+    /// 2. Announces all entities to Home Assistant
+    /// 3. Publishes initial states
+    /// 4. Enters a loop that polls for commands and periodically re-announces/publishes state
+    ///
+    /// # Arguments
+    /// * `interval` - How often to re-announce and publish state
+    ///
+    /// # Returns
+    /// This method runs forever unless an error occurs
+    pub async fn run(&mut self, interval: Duration) -> Result<(), HaError<T::Error>> {
+        // Connect to MQTT broker
+        self.mqtt.connect().await?;
+
+        // Initial announce and state publish
+        self.announce_all().await?;
+        self.publish_states().await?;
+
+        let mut ticker = Ticker::every(interval);
+
+        // Main loop
+        loop {
+            match select(self.poll_internal(), ticker.next()).await {
+                Either::First(result) => {
+                    if result? {
+                        // Command was handled, publish updated state
+                        self.publish_states().await?;
+                    }
+                }
+                Either::Second(_) => {
+                    // Periodic: re-announce and publish state
+                    self.announce_all().await?;
+                    self.publish_states().await?;
+                }
+            }
+        }
     }
 
     /// Get a reference to the underlying MQTT client

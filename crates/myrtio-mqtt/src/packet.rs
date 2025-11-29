@@ -182,7 +182,7 @@ impl<'a> DecodePacket<'a> for Connect<'a> {
     // ... (implementation as before)
     fn decode(
         buf: &'a [u8],
-        version: MqttVersion,
+        _version: MqttVersion,
     ) -> Result<Self, MqttError<transport::ErrorPlaceHolder>> {
         let mut cursor = 2;
         cursor += 6;
@@ -223,15 +223,15 @@ pub struct ConnAck<'a> {
 impl<'a> DecodePacket<'a> for ConnAck<'a> {
     fn decode(
         buf: &'a [u8],
-        version: MqttVersion,
+        _version: MqttVersion,
     ) -> Result<Self, MqttError<transport::ErrorPlaceHolder>> {
         let mut cursor = 2;
         let session_present = (buf[cursor] & 0x01) != 0;
         cursor += 1;
         let reason_code = buf[cursor];
-        cursor += 1;
         #[cfg(feature = "v5")]
         let properties = if version == MqttVersion::V5 {
+            cursor += 1;
             read_properties(&mut cursor, buf)?
         } else {
             Vec::new()
@@ -324,11 +324,11 @@ impl<'a> EncodePacket for Publish<'a> {
         cursor += write_utf8_string(&mut buf[cursor..], self.topic)?;
 
         // Packet ID (only for QoS > 0)
-        if self.qos != QoS::AtMostOnce {
-            if let Some(id) = self.packet_id {
-                buf[cursor..cursor + 2].copy_from_slice(&id.to_be_bytes());
-                cursor += 2;
-            }
+        if self.qos != QoS::AtMostOnce
+            && let Some(id) = self.packet_id
+        {
+            buf[cursor..cursor + 2].copy_from_slice(&id.to_be_bytes());
+            cursor += 2;
         }
 
         // Payload

@@ -19,18 +19,14 @@ pub enum MqttVersion {
 /// Configuration options for the `MqttClient`.
 pub struct MqttOptions<'a> {
     client_id: &'a str,
-    broker_addr: &'a str,
-    broker_port: u16,
     version: MqttVersion,
     keep_alive: Duration,
 }
 
 impl<'a> MqttOptions<'a> {
-    pub fn new(client_id: &'a str, broker_addr: &'a str, broker_port: u16) -> Self {
+    pub fn new(client_id: &'a str) -> Self {
         Self {
             client_id,
-            broker_addr,
-            broker_port,
             version: MqttVersion::V3,
             keep_alive: Duration::from_secs(60),
         }

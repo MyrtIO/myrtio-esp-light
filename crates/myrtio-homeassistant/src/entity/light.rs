@@ -54,8 +54,6 @@ impl ColorMode {
 /// Light entity configuration for Home Assistant discovery
 #[derive(Clone)]
 pub struct LightEntity<'a> {
-    /// Entity identifier suffix (combined with device id for unique_id)
-    pub id: &'a str,
     /// Human-readable name
     pub name: &'a str,
     /// Reference to parent device
@@ -74,33 +72,28 @@ pub struct LightEntity<'a> {
     pub max_mireds: Option<u16>,
 }
 
-impl<'a> LightEntity<'a> {
-    /// Create a builder for light entity configuration
-    pub const fn builder(id: &'a str, device: &'a Device<'a>) -> LightBuilder<'a> {
-        LightBuilder::new(id, device)
-    }
-
+impl LightEntity<'_> {
     /// Get the unique ID for this entity
     pub fn unique_id<const N: usize>(&self) -> String<N> {
         let mut id = String::new();
         let _ = id.push_str(self.device.id);
         let _ = id.push('_');
-        let _ = id.push_str(self.id);
+        let _ = id.push_str("light");
         id
     }
 
     /// Get the state topic for this entity
-    pub fn state_topic<const N: usize>(&self, namespace: &str) -> String<N> {
+    pub fn state_topic<const N: usize>(&self) -> String<N> {
         let mut topic = String::new();
-        let _ = topic.push_str(namespace);
+        let _ = topic.push_str(self.device.id);
         let _ = topic.push('/');
-        let _ = topic.push_str(self.id);
+        let _ = topic.push_str("light");
         topic
     }
 
     /// Get the command topic for this entity
-    pub fn command_topic<const N: usize>(&self, namespace: &str) -> String<N> {
-        let mut topic: String<N> = self.state_topic(namespace);
+    pub fn command_topic<const N: usize>(&self) -> String<N> {
+        let mut topic: String<N> = self.state_topic();
         let _ = topic.push_str("/set");
         topic
     }
@@ -111,15 +104,21 @@ impl<'a> LightEntity<'a> {
         let _ = topic.push_str("homeassistant/light/");
         let _ = topic.push_str(self.device.id);
         let _ = topic.push('_');
-        let _ = topic.push_str(self.id);
+        let _ = topic.push_str("light");
         let _ = topic.push_str("/config");
         topic
     }
 }
 
-/// Builder for LightEntity
+/// Registration for a light entity with callbacks
+pub struct LightRegistration<'a> {
+    pub entity: LightEntity<'a>,
+    pub provide_state: fn() -> LightState<'static>,
+    pub on_command: fn(LightCommand<'_>),
+}
+
+/// Builder for `LightEntity` with callbacks
 pub struct LightBuilder<'a> {
-    id: &'a str,
     device: &'a Device<'a>,
     name: Option<&'a str>,
     icon: Option<&'a str>,
@@ -128,12 +127,13 @@ pub struct LightBuilder<'a> {
     effects: Option<&'a [&'a str]>,
     min_mireds: Option<u16>,
     max_mireds: Option<u16>,
+    provide_state: Option<fn() -> LightState<'static>>,
+    on_command: Option<fn(LightCommand<'_>)>,
 }
 
 impl<'a> LightBuilder<'a> {
-    pub const fn new(id: &'a str, device: &'a Device<'a>) -> Self {
+    pub const fn new(device: &'a Device<'a>) -> Self {
         Self {
-            id,
             device,
             name: None,
             icon: None,
@@ -142,61 +142,89 @@ impl<'a> LightBuilder<'a> {
             effects: None,
             min_mireds: None,
             max_mireds: None,
+            provide_state: None,
+            on_command: None,
         }
     }
 
     /// Set the entity name
+    #[must_use]
     pub const fn name(mut self, name: &'a str) -> Self {
         self.name = Some(name);
         self
     }
 
     /// Set the MDI icon
+    #[must_use]
     pub const fn icon(mut self, icon: &'a str) -> Self {
         self.icon = Some(icon);
         self
     }
 
     /// Enable brightness support
+    #[must_use]
     pub const fn brightness(mut self, enabled: bool) -> Self {
         self.brightness = enabled;
         self
     }
 
     /// Set supported color modes
+    #[must_use]
     pub const fn color_modes(mut self, modes: &'a [ColorMode]) -> Self {
         self.color_modes = modes;
         self
     }
 
     /// Set available effects
+    #[must_use]
     pub const fn effects(mut self, effects: &'a [&'a str]) -> Self {
         self.effects = Some(effects);
         self
     }
 
     /// Set color temperature range in mireds
+    #[must_use]
     pub const fn mireds_range(mut self, min: u16, max: u16) -> Self {
         self.min_mireds = Some(min);
         self.max_mireds = Some(max);
         self
     }
 
-    /// Build the LightEntity
-    pub const fn build(self) -> LightEntity<'a> {
-        LightEntity {
-            id: self.id,
-            name: match self.name {
-                Some(n) => n,
-                None => self.id,
+    /// Set the state provider callback
+    #[must_use]
+    pub const fn provide_state(mut self, f: fn() -> LightState<'static>) -> Self {
+        self.provide_state = Some(f);
+        self
+    }
+
+    /// Set the command handler callback
+    #[must_use]
+    pub const fn on_command(mut self, f: fn(LightCommand<'_>)) -> Self {
+        self.on_command = Some(f);
+        self
+    }
+
+    /// Build the `LightRegistration` (entity + callbacks)
+    ///
+    /// # Panics
+    /// Panics if `provide_state` or `on_command` callbacks are not set.
+    pub const fn build(self) -> LightRegistration<'a> {
+        LightRegistration {
+            entity: LightEntity {
+                name: match self.name {
+                    Some(n) => n,
+                    None => "light",
+                },
+                device: self.device,
+                icon: self.icon,
+                brightness: self.brightness,
+                color_modes: self.color_modes,
+                effects: self.effects,
+                min_mireds: self.min_mireds,
+                max_mireds: self.max_mireds,
             },
-            device: self.device,
-            icon: self.icon,
-            brightness: self.brightness,
-            color_modes: self.color_modes,
-            effects: self.effects,
-            min_mireds: self.min_mireds,
-            max_mireds: self.max_mireds,
+            provide_state: self.provide_state.expect("provide_state callback is required"),
+            on_command: self.on_command.expect("on_command callback is required"),
         }
     }
 }
@@ -249,12 +277,14 @@ impl<'a> LightState<'a> {
     }
 
     /// Set brightness
+    #[must_use]
     pub const fn brightness(mut self, brightness: u8) -> Self {
         self.brightness = Some(brightness);
         self
     }
 
     /// Set color temperature
+    #[must_use]
     pub const fn color_temp(mut self, mireds: u16) -> Self {
         self.color_temp = Some(mireds);
         self.color_mode = Some("color_temp");
@@ -262,6 +292,7 @@ impl<'a> LightState<'a> {
     }
 
     /// Set RGB color
+    #[must_use]
     pub const fn rgb(mut self, r: u8, g: u8, b: u8) -> Self {
         self.color = Some(RgbColor::new(r, g, b));
         self.color_mode = Some("rgb");
@@ -269,6 +300,7 @@ impl<'a> LightState<'a> {
     }
 
     /// Set current effect
+    #[must_use]
     pub const fn effect(mut self, effect: &'a str) -> Self {
         self.effect = Some(effect);
         self
@@ -306,4 +338,3 @@ impl<'a> LightCommand<'a> {
         self.state == Some("OFF")
     }
 }
-

@@ -4,10 +4,13 @@
 
 use serde::Serialize;
 
+use crate::entity::light::LightBuilder;
+use crate::entity::number::NumberBuilder;
+
 /// Device information for Home Assistant discovery
 #[derive(Clone, Serialize)]
 pub struct Device<'a> {
-    /// Device identifier (used in unique_id generation)
+    /// Device identifier (used in `unique_id` generation)
     #[serde(skip)]
     pub id: &'a str,
     /// Human-readable device name
@@ -42,6 +45,16 @@ impl<'a> Device<'a> {
     pub const fn builder(id: &'a str) -> DeviceBuilder<'a> {
         DeviceBuilder::new(id)
     }
+
+    /// Create a light entity builder for this device
+    pub const fn light(&'a self) -> LightBuilder<'a> {
+        LightBuilder::new(self)
+    }
+
+    /// Create a number entity builder for this device
+    pub const fn number(&'a self, id: &'a str) -> NumberBuilder<'a> {
+        NumberBuilder::new(id, self)
+    }
 }
 
 /// Builder for Device configuration
@@ -66,24 +79,28 @@ impl<'a> DeviceBuilder<'a> {
     }
 
     /// Set the device name
+    #[must_use]
     pub const fn name(mut self, name: &'a str) -> Self {
         self.name = Some(name);
         self
     }
 
     /// Set the manufacturer
+    #[must_use]
     pub const fn manufacturer(mut self, manufacturer: &'a str) -> Self {
         self.manufacturer = Some(manufacturer);
         self
     }
 
     /// Set the model
+    #[must_use]
     pub const fn model(mut self, model: &'a str) -> Self {
         self.model = Some(model);
         self
     }
 
     /// Set the software version
+    #[must_use]
     pub const fn sw_version(mut self, sw_version: &'a str) -> Self {
         self.sw_version = Some(sw_version);
         self
@@ -104,4 +121,3 @@ impl<'a> DeviceBuilder<'a> {
         }
     }
 }
-

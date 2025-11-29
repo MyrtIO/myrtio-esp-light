@@ -9,6 +9,7 @@ mod static_color;
 pub use rainbow::RainbowEffect;
 pub use static_color::StaticColorEffect;
 
+use crate::state::EffectId;
 use embassy_time::Duration;
 use smart_leds::RGB;
 
@@ -77,5 +78,25 @@ impl<const N: usize> EffectSlot<N> {
     /// Check if effect is Off
     pub fn is_off(&self) -> bool {
         matches!(self, Self::Off)
+    }
+
+    /// Get the effect ID for external observation
+    pub fn effect_id(&self) -> EffectId {
+        match self {
+            Self::Off => EffectId::Off,
+            Self::Rainbow(_) => EffectId::Rainbow,
+            Self::Static(_) => EffectId::Static,
+        }
+    }
+
+    /// Get the current color (for static effect)
+    pub fn color(&self) -> (u8, u8, u8) {
+        match self {
+            Self::Static(effect) => {
+                let c = effect.color();
+                (c.r, c.g, c.b)
+            }
+            _ => (255, 255, 255),
+        }
     }
 }

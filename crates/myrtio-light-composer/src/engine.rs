@@ -6,6 +6,7 @@
 //! - Coordinates brightness envelope
 //! - Drives the render loop
 //! - Accepts commands via async channel
+//! - Optionally publishes state to SharedState for external observation
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Receiver, Sender}};
 use embassy_time::{Duration, Instant, Timer};
@@ -14,6 +15,7 @@ use super::{
     driver::LedDriver,
     effect::EffectSlot,
     processor::OutputProcessor,
+    state::SharedState,
 };
 
 /// Default frames per second
@@ -105,7 +107,7 @@ impl TransitionConfig {
 /// Light Engine - the main orchestrator
 ///
 /// Generic over `D: LedDriver` to support different hardware backends.
-pub struct LightEngine<D: LedDriver<N>, const N: usize> {
+pub struct LightEngine<'a, D: LedDriver<N>, const N: usize> {
     /// Hardware driver for LED output
     driver: D,
     /// Command receiver
@@ -126,9 +128,11 @@ pub struct LightEngine<D: LedDriver<N>, const N: usize> {
     frame_duration: Duration,
     /// Start time for effect animations
     start_time: Instant,
+    /// Optional shared state for external observation
+    shared_state: Option<&'a SharedState>,
 }
 
-impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
+impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     /// Create a new light engine with command channel
     ///
     /// Returns the engine and a sender for commands.
@@ -144,6 +148,25 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
             target_brightness: 255,
             frame_duration: Duration::from_millis(1000 / DEFAULT_FPS as u64),
             start_time: Instant::now(),
+            shared_state: None,
+        }
+    }
+
+    /// Attach shared state for external observation
+    #[must_use]
+    pub fn with_shared_state(mut self, state: &'a SharedState) -> Self {
+        self.shared_state = Some(state);
+        self
+    }
+
+    /// Publish current state to shared state (if attached)
+    fn publish_state(&self) {
+        if let Some(shared) = self.shared_state {
+            shared.set_brightness(self.target_brightness);
+            shared.set_on(self.state != EngineState::Stopped);
+            shared.set_effect(self.current_effect.effect_id());
+            let (r, g, b) = self.current_effect.color();
+            shared.set_rgb(r, g, b);
         }
     }
 
@@ -288,6 +311,9 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
 
         // Handle state machine transitions
         self.update_state();
+
+        // Publish state to shared state (if attached)
+        self.publish_state();
 
         // Get elapsed time since engine start (for effect animations)
         let elapsed = self.start_time.elapsed();

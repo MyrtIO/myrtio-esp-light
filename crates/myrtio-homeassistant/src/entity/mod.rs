@@ -5,6 +5,5 @@
 pub mod light;
 pub mod number;
 
-pub use light::{LightBuilder, LightCommand, LightEntity, LightState, ColorMode, RgbColor};
-pub use number::{NumberBuilder, NumberEntity};
-
+pub use light::{ColorMode, LightBuilder, LightCommand, LightEntity, LightRegistration, LightState, RgbColor};
+pub use number::{NumberBuilder, NumberEntity, NumberRegistration, NumberState};

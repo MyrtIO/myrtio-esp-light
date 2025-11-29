@@ -1,5 +1,5 @@
 [package]
-name = "myrtio_wifi"
+name = "myrtio_netutils"
 version = "0.1.0"
 publish = false
 license = { workspace = true }
@@ -11,7 +11,9 @@ embassy-net = { version = "0.7.0", features = [
   "medium-ethernet",
   "tcp",
   "udp",
+  "dns",
 ] }
+
 embassy-time = { workspace = true }
 
 [lints]

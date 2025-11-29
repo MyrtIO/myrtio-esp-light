@@ -2,6 +2,11 @@
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
+pub mod config;
+mod controller;
+mod hardware;
+mod state;
+
 use embassy_executor::Spawner;
 use embassy_net::{Runner, StackResources};
 use embassy_sync::channel::Channel;
@@ -19,13 +24,10 @@ use esp_rtos::embassy::Executor;
 use myrtio_light_composer::{CommandChannel, EffectSlot, LightEngine, effect::RainbowEffect};
 use static_cell::StaticCell;
 
-mod controller;
-mod hardware;
-
-use controller::mqtt::mqtt_controller_task;
+use controller::homeassistant_mqtt::mqtt_controller_task;
 use hardware::EspLedDriver;
 
-pub mod config;
+use crate::state::LIGHT_STATE;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -84,7 +86,7 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(runner)).ok();
 
-    let ip_config = myrtio_wifi::wait_for_connection(stack).await;
+    let _ip_config = myrtio_netutils::wait_for_connection(stack).await;
 
     // Spawn MQTT task
     spawner
@@ -123,8 +125,10 @@ async fn main(spawner: Spawner) -> ! {
 
 #[embassy_executor::task]
 async fn light_task(driver: EspLedDriver<'static, { config::NUM_LEDS }>) {
-    let mut engine = LightEngine::new(driver, LIGHT_CHANNEL.receiver());
+    let mut engine =
+        LightEngine::new(driver, LIGHT_CHANNEL.receiver()).with_shared_state(&LIGHT_STATE);
     engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));
+    engine.set_brightness(50, Duration::from_millis(50));
 
     loop {
         engine.tick().await;

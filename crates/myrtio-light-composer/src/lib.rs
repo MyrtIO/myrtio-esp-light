@@ -8,6 +8,7 @@
 //! - `processor` - Output processing (brightness, gamma, etc.)
 //! - `transition` - Reusable transition utilities (color, etc.)
 //! - `engine` - Main state machine orchestrator
+//! - `state` - Shared state for external observation
 //!
 //! The engine is generic over `LedDriver`, allowing different hardware backends.
 
@@ -15,6 +16,7 @@ pub mod driver;
 pub mod effect;
 pub mod engine;
 pub mod processor;
+pub mod state;
 pub mod transition;
 
 // Driver exports
@@ -31,6 +33,9 @@ pub use engine::{
 
 // Processor exports
 pub use processor::OutputProcessor;
+
+// State exports
+pub use state::{EffectId, SharedState};
 
 // Transition exports
 pub use transition::ColorTransition;
