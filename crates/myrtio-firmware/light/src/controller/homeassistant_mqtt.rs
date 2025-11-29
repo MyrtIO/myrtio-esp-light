@@ -9,7 +9,7 @@ use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use embassy_time::Duration;
 use esp_println::println;
 use myrtio_homeassistant::{ColorMode, Device, HomeAssistantClient, LightCommand, LightState};
-use myrtio_light_composer::effect::{RainbowEffect, StaticColorEffect};
+use myrtio_light_composer::effect::{RainbowEffect, RainbowFlowEffect, StaticColorEffect};
 use myrtio_light_composer::{Command, CommandSender, EffectId, EffectSlot};
 use myrtio_mqtt::{
     client::{MqttClient, MqttOptions},
@@ -30,6 +30,7 @@ static DEVICE: Device<'static> = Device::builder(config::DEVICE_ID)
 /// Effect names
 const EFFECT_STATIC: &str = "static";
 const EFFECT_RAINBOW: &str = "rainbow";
+const EFFECT_RAINBOW_FLOW: &str = "rainbow_flow";
 
 /// Duration (ms) for crossfading between colors
 const COLOR_TRANSITION_MS: u64 = 300;
@@ -38,8 +39,10 @@ const COLOR_TRANSITION_MS: u64 = 300;
 static TARGET_BRIGHTNESS: AtomicU8 = AtomicU8::new(255);
 
 /// Command sender (protected by mutex)
-static COMMAND_SENDER: Mutex<CriticalSectionRawMutex, RefCell<Option<CommandSender<LIGHT_LED_COUNT>>>> =
-    Mutex::new(RefCell::new(None));
+static COMMAND_SENDER: Mutex<
+    CriticalSectionRawMutex,
+    RefCell<Option<CommandSender<LIGHT_LED_COUNT>>>,
+> = Mutex::new(RefCell::new(None));
 
 /// Get effect name from EffectId
 fn get_effect_name(id: EffectId) -> &'static str {
@@ -62,6 +65,14 @@ fn get_light_state() -> LightState<'static> {
     }
 }
 
+fn parse_effect(effect: &str) -> Option<EffectSlot<LIGHT_LED_COUNT>> {
+    match effect {
+        EFFECT_RAINBOW => Some(EffectSlot::Rainbow(RainbowEffect::default())),
+        EFFECT_RAINBOW_FLOW => Some(EffectSlot::RainbowFlow(RainbowFlowEffect::default())),
+        _ => None,
+    }
+}
+
 /// Handle light command from Home Assistant
 fn handle_light_command(cmd: LightCommand<'_>) {
     COMMAND_SENDER.lock(|cell| {
@@ -71,20 +82,11 @@ fn handle_light_command(cmd: LightCommand<'_>) {
         };
         // Handle effect change
         if let Some(effect) = cmd.effect {
-            match effect {
-                EFFECT_RAINBOW => {
-                    let _ = sender.try_send(Command::SwitchEffect(EffectSlot::Rainbow(
-                        RainbowEffect::default(),
-                    )));
-                }
-                _ => {
-                    // Switch to static with current color from SharedState
-                    let (r, g, b) = LIGHT_STATE.rgb();
-                    let _ = sender.try_send(Command::SwitchEffect(EffectSlot::Static(
-                        StaticColorEffect::from_rgb(r, g, b),
-                    )));
-                }
-            }
+            let (r, g, b) = LIGHT_STATE.rgb();
+            let effect = parse_effect(effect)
+                .unwrap_or(EffectSlot::Static(StaticColorEffect::from_rgb(r, g, b)));
+
+            let _ = sender.try_send(Command::SwitchEffect(effect));
         }
 
         // Handle color change
@@ -131,12 +133,10 @@ pub async fn mqtt_controller_task(stack: Stack<'static>, sender: CommandSender<L
         cell.borrow_mut().replace(sender);
     });
 
-    embassy_time::Timer::after(Duration::from_secs(1)).await;
-
     loop {
         if let Err(_e) = run_mqtt_client(stack).await {
-            println!("MQTT connection lost, reconnecting in 5s...");
-            embassy_time::Timer::after(Duration::from_secs(5)).await;
+            println!("MQTT connection lost, reconnecting in 2s...");
+            embassy_time::Timer::after(Duration::from_secs(2)).await;
         }
     }
 }
@@ -149,9 +149,8 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
     socket.set_timeout(Some(Duration::from_secs(60)));
 
     let broker_addr = resolve_host(stack, MQTT_HOST).await?;
-    println!("Resolved {} -> {:?}", MQTT_HOST, broker_addr);
 
-    println!("Connecting to MQTT broker {}:{}...", MQTT_HOST, MQTT_PORT);
+    println!("Connecting to MQTT broker {:?}:{}...", broker_addr, MQTT_PORT);
     socket
         .connect((broker_addr, MQTT_PORT))
         .await
@@ -161,8 +160,7 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
     println!("TCP connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
-    let options = MqttOptions::new(config::DEVICE_ID)
-        .with_keep_alive(Duration::from_secs(15));
+    let options = MqttOptions::new(config::DEVICE_ID).with_keep_alive(Duration::from_secs(15));
     let mqtt: MqttClient<_, 8, 512> = MqttClient::new(transport, options);
 
     // Create HA client and add entities
@@ -171,13 +169,13 @@ async fn run_mqtt_client(stack: Stack<'static>) -> Result<(), ()> {
     ha.add_light(
         DEVICE
             .light()
-            .name("Main Light")
-            .icon("mdi:lightbulb")
+            .name("LED Strip")
+            .icon("mdi:led-strip")
             .brightness(true)
             .color_modes(&[ColorMode::Rgb])
             .provide_state(get_light_state)
             .on_command(handle_light_command)
-            .effects(&[EFFECT_STATIC, EFFECT_RAINBOW])
+            .effects(&[EFFECT_STATIC, EFFECT_RAINBOW, EFFECT_RAINBOW_FLOW])
             .build(),
     )
     .map_err(|e| {

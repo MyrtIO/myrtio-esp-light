@@ -137,6 +137,8 @@ pub struct LightEngine<'a, D: LedDriver<N>, const N: usize> {
     frame_duration: Duration,
     /// Start time for effect animations
     start_time: Instant,
+    /// Next scheduled tick time for consistent FPS
+    next_tick: Instant,
     /// Optional shared state for external observation
     shared_state: Option<&'a SharedState>,
 }
@@ -146,6 +148,7 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     ///
     /// Returns the engine and a sender for commands.
     pub fn new(driver: D, commands: CommandReceiver<N>) -> Self {
+        let now = Instant::now();
         Self {
             driver,
             commands,
@@ -155,8 +158,9 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
             state: EngineState::Running,
             transition_config: TransitionConfig::default(),
             target_brightness: 255,
-            frame_duration: Duration::from_millis(1000 / DEFAULT_FPS as u64),
-            start_time: Instant::now(),
+            frame_duration: Duration::from_millis(1000 / u64::from(DEFAULT_FPS)),
+            start_time: now,
+            next_tick: now,
             shared_state: None,
         }
     }
@@ -189,7 +193,7 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
 
     /// Set the target frame rate
     pub fn set_fps(&mut self, fps: u32) {
-        self.frame_duration = Duration::from_millis(1000 / fps as u64);
+        self.frame_duration = Duration::from_millis(1000 / u64::from(fps));
     }
 
     /// Set transition configuration
@@ -325,7 +329,8 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     ///
     /// This is the main render loop step. Call this continuously.
     pub async fn tick(&mut self) {
-        let frame_start = Instant::now();
+        // Schedule target time for this frame completion
+        self.next_tick += self.frame_duration;
 
         // Process any pending commands
         self.process_commands();
@@ -351,10 +356,15 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
         // Write to hardware
         self.driver.write(&frame);
 
-        // Wait for frame timing
-        let render_time = frame_start.elapsed();
-        if render_time < self.frame_duration {
-            Timer::after(self.frame_duration - render_time).await;
+        // Wait until the scheduled time to maintain constant FPS
+        Timer::at(self.next_tick).await;
+
+        // Drift correction: if we missed the window significantly,
+        // reset the schedule to avoid trying to catch up too aggressively.
+        let now = Instant::now();
+        // Allow up to 3 frames of lag before resetting
+        if now > self.next_tick + (self.frame_duration * 3) {
+            self.next_tick = now;
         }
     }
 

@@ -6,7 +6,7 @@
 mod rainbow;
 mod static_color;
 
-pub use rainbow::RainbowEffect;
+pub use rainbow::{RainbowEffect, RainbowFlowEffect};
 pub use static_color::StaticColorEffect;
 
 use crate::state::EffectId;
@@ -44,8 +44,10 @@ pub trait EffectImpl<const N: usize> {
 pub enum EffectSlot<const N: usize> {
     /// No effect - all LEDs off
     Off,
-    /// Rainbow cycling effect
+    /// Rainbow cycling effect (fixed-point gradient)
     Rainbow(RainbowEffect),
+    /// Rainbow flow effect (three-point mirrored gradient)
+    RainbowFlow(RainbowFlowEffect),
     /// Static single color
     Static(StaticColorEffect),
 }
@@ -62,6 +64,7 @@ impl<const N: usize> EffectSlot<N> {
         match self {
             Self::Off => [RGB::default(); N],
             Self::Rainbow(effect) => effect.render(time),
+            Self::RainbowFlow(effect) => effect.render(time),
             Self::Static(effect) => effect.render(time),
         }
     }
@@ -71,6 +74,7 @@ impl<const N: usize> EffectSlot<N> {
         match self {
             Self::Off => {}
             Self::Rainbow(effect) => EffectImpl::<N>::reset(effect),
+            Self::RainbowFlow(effect) => EffectImpl::<N>::reset(effect),
             Self::Static(effect) => EffectImpl::<N>::reset(effect),
         }
     }
@@ -84,7 +88,7 @@ impl<const N: usize> EffectSlot<N> {
     pub fn effect_id(&self) -> EffectId {
         match self {
             Self::Off => EffectId::Off,
-            Self::Rainbow(_) => EffectId::Rainbow,
+            Self::Rainbow(_) | Self::RainbowFlow(_) => EffectId::Rainbow,
             Self::Static(_) => EffectId::Static,
         }
     }
