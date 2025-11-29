@@ -158,9 +158,28 @@ where
             .map_err(|_| HaError::MaxEntitiesReached)
     }
 
+    /// Subscribe to command topics for all registered entities
+    ///
+    /// This should be called once after connecting to the MQTT broker
+    async fn subscribe_all(&mut self) -> Result<(), HaError<T::Error>> {
+        for entry in &self.lights {
+            let cmd_topic: String<128> = entry.entity.command_topic();
+            self.mqtt
+                .subscribe(cmd_topic.as_str(), QoS::AtMostOnce)
+                .await?;
+        }
+        for entry in &self.numbers {
+            let cmd_topic: String<128> = entry.entity.command_topic();
+            self.mqtt
+                .subscribe(cmd_topic.as_str(), QoS::AtMostOnce)
+                .await?;
+        }
+        Ok(())
+    }
+
     /// Announce all registered entities to Home Assistant
     ///
-    /// Publishes discovery configs and subscribes to command topics
+    /// Publishes discovery configs (does not subscribe - use subscribe_all for that)
     pub async fn announce_all(&mut self) -> Result<(), HaError<T::Error>> {
         // Announce lights
         let light_count = self.lights.len();
@@ -218,11 +237,6 @@ where
             .publish(config_topic.as_str(), &self.buf[..json], QoS::AtLeastOnce)
             .await?;
 
-        // Subscribe to command topic
-        self.mqtt
-            .subscribe(command_topic.as_str(), QoS::AtLeastOnce)
-            .await?;
-
         Ok(())
     }
 
@@ -259,11 +273,6 @@ where
         // Publish discovery config
         self.mqtt
             .publish(config_topic.as_str(), &self.buf[..json], QoS::AtLeastOnce)
-            .await?;
-
-        // Subscribe to command topic
-        self.mqtt
-            .subscribe(command_topic.as_str(), QoS::AtLeastOnce)
             .await?;
 
         Ok(())
@@ -361,6 +370,9 @@ where
     pub async fn run(&mut self, interval: Duration) -> Result<(), HaError<T::Error>> {
         // Connect to MQTT broker
         self.mqtt.connect().await?;
+
+        // Subscribe to command topics (once after connect)
+        self.subscribe_all().await?;
 
         // Initial announce and state publish
         self.announce_all().await?;

@@ -115,7 +115,13 @@ impl<'a> MqttTransport for TcpTransport<'a> {
                 #[cfg(feature = "esp-println")]
                 esp_println::println!("TCP write error: {:?}", e);
                 MqttError::Transport(e)
-            })
+            })?;
+        
+        // Flush to ensure data is actually sent to the network
+        self.socket
+            .flush()
+            .await
+            .map_err(MqttError::Transport)
     }
 
     async fn recv(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
