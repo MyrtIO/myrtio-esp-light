@@ -63,6 +63,32 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
+    // Initialize light engine with command channel
+    let driver =
+        EspLedDriver::<{ config::LIGHT_LED_COUNT }>::new(peripherals.RMT, led_gpio!(peripherals));
+
+    // Start light task on second core
+    static APP_CORE_STACK: static_cell::StaticCell<esp_hal::system::Stack<8192>> =
+        static_cell::StaticCell::new();
+    let app_core_stack = APP_CORE_STACK.init(esp_hal::system::Stack::new());
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+
+    esp_rtos::start_second_core(
+        peripherals.CPU_CTRL,
+        #[cfg(target_arch = "xtensa")]
+        sw_int.software_interrupt0,
+        sw_int.software_interrupt1,
+        app_core_stack,
+        move || {
+            static EXECUTOR: static_cell::StaticCell<esp_rtos::embassy::Executor> =
+                StaticCell::new();
+            let executor = EXECUTOR.init(Executor::new());
+            executor.run(|spawner| {
+                spawner.spawn(light_task(driver)).ok();
+            });
+        },
+    );
+
     // Initialize network stack
     let esp_radio_ctrl = &*mk_static!(Controller<'static>, esp_radio::init().unwrap());
     let (controller, interfaces) =
@@ -93,31 +119,6 @@ async fn main(spawner: Spawner) -> ! {
     spawner
         .spawn(mqtt_controller_task(stack, LIGHT_CHANNEL.sender()))
         .ok();
-
-    // Initialize light engine with command channel
-    let driver = EspLedDriver::<{ config::LIGHT_LED_COUNT }>::new(peripherals.RMT, led_gpio!(peripherals));
-
-    static APP_CORE_STACK: static_cell::StaticCell<esp_hal::system::Stack<8192>> =
-        static_cell::StaticCell::new();
-    let app_core_stack = APP_CORE_STACK.init(esp_hal::system::Stack::new());
-
-    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
-
-    esp_rtos::start_second_core(
-        peripherals.CPU_CTRL,
-        #[cfg(target_arch = "xtensa")]
-        sw_int.software_interrupt0,
-        sw_int.software_interrupt1,
-        app_core_stack,
-        move || {
-            static EXECUTOR: static_cell::StaticCell<esp_rtos::embassy::Executor> =
-                StaticCell::new();
-            let executor = EXECUTOR.init(Executor::new());
-            executor.run(|spawner| {
-                spawner.spawn(light_task(driver)).ok();
-            });
-        },
-    );
 
     loop {
         embassy_time::Timer::after(Duration::from_secs(5)).await;
