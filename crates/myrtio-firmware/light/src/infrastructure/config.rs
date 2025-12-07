@@ -34,9 +34,9 @@ pub(crate) const LIGHT_COLOR_CORRECTION: u32 = 0xFFAA78;
 pub(crate) const LIGHT_COLOR_CORRECTION: u32 = 0xFFFFFF;
 
 #[cfg(feature = "rs1")]
-pub(crate) const LIGHT_MAX_BRIGHTNESS: u8 = 100;
+pub(crate) const LIGHT_MAX_BRIGHTNESS_SCALE: u8 = 100;
 #[cfg(not(all(feature = "rs1")))]
-pub(crate) const LIGHT_MAX_BRIGHTNESS: u8 = 255;
+pub(crate) const LIGHT_MAX_BRIGHTNESS_SCALE: u8 = 255;
 
 pub(crate) const STORAGE_WRITE_DEBOUNCE_MS: u64 = 5000;
 

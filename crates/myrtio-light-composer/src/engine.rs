@@ -40,9 +40,7 @@ use embassy_time::{Duration, Instant, Timer};
 
 use crate::ColorCorrection;
 
-use super::{
-    driver::LedDriver, effect::EffectSlot, processor::OutputProcessor
-};
+use super::{driver::LedDriver, effect::EffectSlot, processor::OutputProcessor};
 
 /// Default frames per second
 const DEFAULT_FPS: u32 = 90;
@@ -168,7 +166,7 @@ pub struct LightEngine<D: LedDriver<N>, const N: usize> {
     /// Transition configuration
     transition_config: TransitionConfig,
     /// Target brightness (restored after fade-in)
-    target_brightness: u8,
+    brightness: u8,
     /// Frame timing
     frame_duration: Duration,
     /// Start time for effect animations
@@ -183,16 +181,17 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
     /// Returns the engine and a sender for commands.
     pub fn new(driver: D, commands: CommandReceiver<N>) -> Self {
         let now = Instant::now();
+        let frame_duration = Duration::from_millis(1000 / u64::from(DEFAULT_FPS));
         Self {
             driver,
             commands,
             current_effect: EffectSlot::default(),
             pending_effect: None,
-            processor: OutputProcessor::with_brightness(255),
+            processor: OutputProcessor::with_brightness(255, frame_duration),
             state: EngineState::Stopped,
             transition_config: TransitionConfig::default(),
-            target_brightness: 255,
-            frame_duration: Duration::from_millis(1000 / u64::from(DEFAULT_FPS)),
+            brightness: 255,
+            frame_duration,
             start_time: now,
             next_tick: now,
         }
@@ -202,6 +201,13 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
     #[must_use]
     pub fn with_color_correction(mut self, color_correction: ColorCorrection) -> Self {
         self.processor.color_correction = color_correction;
+        self
+    }
+
+    /// Set the output brightness scale
+    #[must_use]
+    pub fn with_brightness_scale(mut self, scale: u8) -> Self {
+        self.processor.brightness.set_scale(scale);
         self
     }
 
@@ -222,18 +228,18 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
 
     /// Get current brightness
     pub fn brightness(&self) -> u8 {
-        self.processor.brightness.current()
+        self.brightness
     }
 
     /// Set global brightness with transition
     pub fn set_brightness(&mut self, brightness: u8, duration: Duration) {
-        self.target_brightness = brightness;
+        self.brightness = brightness;
         self.processor.brightness.set(brightness, duration);
     }
 
     /// Set global brightness immediately
     pub fn set_brightness_immediate(&mut self, brightness: u8) {
-        self.target_brightness = brightness;
+        self.brightness = brightness;
         self.processor.brightness.set_immediate(brightness);
     }
 
@@ -269,7 +275,7 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
                 self.current_effect.reset();
                 self.processor
                     .brightness
-                    .fade_in(self.target_brightness, config.fade_in_duration);
+                    .fade_in(self.brightness, config.fade_in_duration);
                 self.state = EngineState::FadingIn;
             }
         }
@@ -302,7 +308,7 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
         if self.state == EngineState::Stopped {
             self.processor
                 .brightness
-                .fade_in(self.target_brightness, fade_duration);
+                .fade_in(self.brightness, fade_duration);
             self.state = EngineState::FadingIn;
         }
     }
@@ -424,10 +430,9 @@ impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
                         // Switch to new effect and start fade-in
                         self.current_effect = effect;
                         self.current_effect.reset();
-                        self.processor.brightness.fade_in(
-                            self.target_brightness,
-                            self.transition_config.fade_in_duration,
-                        );
+                        self.processor
+                            .brightness
+                            .fade_in(self.brightness, self.transition_config.fade_in_duration);
                         self.state = EngineState::FadingIn;
                     } else {
                         // No pending effect - engine stopped

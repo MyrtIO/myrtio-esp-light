@@ -15,6 +15,7 @@ mod color_correction;
 pub use brightness::BrightnessEnvelope;
 pub use color_correction::ColorCorrection;
 
+use embassy_time::Duration;
 use smart_leds::RGB;
 
 /// Output processor - applies post-processing to frames
@@ -44,9 +45,9 @@ impl<const N: usize> OutputProcessor<N> {
     }
 
     /// Create with specific initial brightness
-    pub fn with_brightness(brightness: u8) -> Self {
+    pub fn with_brightness(brightness: u8, frame_time: Duration) -> Self {
         Self {
-            brightness: BrightnessEnvelope::new(brightness),
+            brightness: BrightnessEnvelope::new(brightness, frame_time),
             color_correction: ColorCorrection::default(),
         }
     }

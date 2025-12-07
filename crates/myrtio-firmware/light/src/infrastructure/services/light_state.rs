@@ -79,7 +79,7 @@ impl LightStateReader for LightStateService {
     }
 }
 
-const BRIGHTNESS_TRANSITION_MS: u64 = 300;
+const BRIGHTNESS_TRANSITION_MS: u64 = 400;
 const COLOR_TRANSITION_MS: u64 = 300;
 
 impl LightIntentApplier for LightStateService {

@@ -13,12 +13,16 @@ use smart_leds::RGB;
 /// Brightness envelope with smooth transitions
 #[derive(Clone)]
 pub struct BrightnessEnvelope<const N: usize> {
+    /// Scale factor (0-255 = 0.0-1.0)
+    scale: u8,
     /// Current brightness value (0-255)
     current: u8,
     /// Target brightness for transition
     target: u8,
     /// Transition state
     transition: Option<BrightnessTransition>,
+    /// Frame time
+    frame_time: Duration,
 }
 
 #[derive(Clone)]
@@ -36,37 +40,38 @@ struct BrightnessTransition {
 impl<const N: usize> Default for BrightnessEnvelope<N> {
     fn default() -> Self {
         Self {
+            scale: 255,
             current: 255,
             target: 255,
             transition: None,
+            frame_time: Duration::from_millis(16), // ~60fps default
         }
     }
 }
 
 impl<const N: usize> BrightnessEnvelope<N> {
     /// Create a new brightness envelope with initial brightness
-    pub fn new(brightness: u8) -> Self {
+    pub fn new(brightness: u8, frame_time: Duration) -> Self {
         Self {
+            scale: 255,
             current: brightness,
             target: brightness,
             transition: None,
+            frame_time,
         }
     }
 
-    /// Get current brightness value
-    pub fn current(&self) -> u8 {
-        self.current
-    }
-
-    /// Get target brightness value
-    pub fn target(&self) -> u8 {
-        self.target
+    pub fn set_scale(&mut self, scale: u8) {
+        self.scale = scale;
+        self.current = scale8(self.current, scale);
+        self.target = scale8(self.target, scale);
     }
 
     /// Set brightness immediately (no transition)
     pub fn set_immediate(&mut self, brightness: u8) {
-        self.current = brightness;
-        self.target = brightness;
+        let scaled = self.scale(brightness);
+        self.current = scaled;
+        self.target = scaled;
         self.transition = None;
     }
 
@@ -77,10 +82,10 @@ impl<const N: usize> BrightnessEnvelope<N> {
             return;
         }
 
-        self.target = brightness;
+        self.target = self.scale(brightness);
         self.transition = Some(BrightnessTransition {
             start_value: self.current,
-            end_value: brightness,
+            end_value: self.target,
             duration,
             elapsed: Duration::from_millis(0),
         });
@@ -106,13 +111,6 @@ impl<const N: usize> BrightnessEnvelope<N> {
         self.current == 0 && self.transition.is_none()
     }
 
-    /// Update transition state
-    ///
-    /// Call this once per frame with the frame delta time.
-    pub fn tick(&mut self) {
-        self.tick_with_delta(Duration::from_millis(16)); // ~60fps default
-    }
-
     /// Update with specific delta time
     #[allow(
         clippy::cast_precision_loss,
@@ -120,9 +118,9 @@ impl<const N: usize> BrightnessEnvelope<N> {
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     )]
-    pub fn tick_with_delta(&mut self, delta: Duration) {
+    pub fn tick(&mut self) {
         if let Some(ref mut transition) = self.transition {
-            transition.elapsed += delta;
+            transition.elapsed += self.frame_time;
 
             if transition.elapsed >= transition.duration {
                 // Transition complete
@@ -162,6 +160,10 @@ impl<const N: usize> BrightnessEnvelope<N> {
             pixel.g = scale8(pixel.g, self.current);
             pixel.b = scale8(pixel.b, self.current);
         }
+    }
+
+    fn scale(&self, value: u8) -> u8 {
+        scale8(value, self.scale)
     }
 }
 

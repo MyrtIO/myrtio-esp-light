@@ -21,7 +21,7 @@ const LIGHT_COLOR_CORRECTION: ColorCorrection =
 pub(crate) async fn light_composer_task(driver: LightDriver) {
     let receiver = LIGHT_COMMAND_CHANNEL.receiver();
     let mut engine =
-        LightEngine::new(driver, receiver).with_color_correction(LIGHT_COLOR_CORRECTION);
+        LightEngine::new(driver, receiver).with_color_correction(LIGHT_COLOR_CORRECTION).with_brightness_scale(config::LIGHT_MAX_BRIGHTNESS_SCALE);
 
     engine.set_brightness(0, Duration::from_millis(0));
     let effect = EffectSlot::Static(StaticColorEffect::default());
