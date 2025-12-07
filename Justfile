@@ -3,7 +3,12 @@ set dotenv-load := true
 build-esp32:
     #!/bin/bash
     source $HOME/export-esp.sh
-    cargo build
+    cargo build --config .cargo/config_esp32.toml
+
+run-rs1:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+    cargo run --release --config .cargo/config_esp32.toml --features rs1
 
 # Test the myrtio-macros crate (requires separate target dir due to workspace esp config)
 test-macros:
