@@ -5,5 +5,4 @@
 
 mod color;
 
-pub use color::{ColorTransition, blend_colors, blend8};
-
+pub use color::{ColorTransition, blend_colors};

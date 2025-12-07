@@ -10,6 +10,8 @@
 use embassy_time::Duration;
 use smart_leds::RGB;
 
+use crate::math8::{progress8, scale8};
+
 /// Brightness envelope with smooth transitions
 #[derive(Clone)]
 pub struct BrightnessEnvelope<const N: usize> {
@@ -127,14 +129,18 @@ impl<const N: usize> BrightnessEnvelope<N> {
                 self.current = transition.end_value;
                 self.transition = None;
             } else {
-                // Calculate progress (0.0 - 1.0)
-                let progress =
-                    transition.elapsed.as_millis() as f32 / transition.duration.as_millis() as f32;
+                let progress = progress8(transition.elapsed, transition.duration);
+                let is_decreasing = transition.start_value > transition.end_value;
 
-                // Linear interpolation
-                let start = transition.start_value as f32;
-                let end = transition.end_value as f32;
-                self.current = (start + (end - start) * progress) as u8;
+                if is_decreasing {
+                    let delta: u8 = transition.start_value - transition.end_value;
+                    let progress_value = scale8(delta, progress);
+                    self.current = transition.start_value - progress_value;
+                } else {
+                    let delta: u8 = transition.end_value - transition.start_value;
+                    let progress_value = scale8(delta, progress);
+                    self.current = transition.start_value + progress_value;
+                }
             }
         }
     }
@@ -165,13 +171,4 @@ impl<const N: usize> BrightnessEnvelope<N> {
     fn scale(&self, value: u8) -> u8 {
         scale8(value, self.scale)
     }
-}
-
-/// Scale an 8-bit value by a factor (0-255 = 0.0-1.0)
-///
-/// Uses integer math for efficiency on embedded systems.
-#[inline]
-#[allow(clippy::cast_lossless)]
-fn scale8(value: u8, scale: u8) -> u8 {
-    ((value as u16 * scale as u16) >> 8) as u8
 }

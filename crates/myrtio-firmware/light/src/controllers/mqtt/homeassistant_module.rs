@@ -4,6 +4,7 @@
 //! It creates and configures the `HaModule` with the appropriate entities and callbacks.
 
 use embassy_time::Duration;
+use esp_println::println;
 use myrtio_homeassistant::{HaModule, LightCommand, LightRegistration, LightState};
 use myrtio_light_composer::EffectId;
 use myrtio_light_composer::effect::EffectName;
@@ -68,6 +69,8 @@ fn handle_light_command(cmd: &LightCommand) {
             intent = intent.with_effect_id(effect_id as u8);
         }
     }
+
+    println!("intent: {:?}", intent);
 
     LIGHT_USECASES.lock(|cell| {
         let mut cell_ref = cell.borrow_mut();

@@ -19,6 +19,7 @@ pub mod models;
 pub mod processor;
 pub mod state;
 pub mod transition;
+pub mod math8;
 
 // Driver exports
 pub use driver::LedDriver;

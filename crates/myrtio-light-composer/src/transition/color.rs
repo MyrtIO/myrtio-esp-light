@@ -6,6 +6,8 @@
 use embassy_time::Duration;
 use smart_leds::RGB;
 
+use crate::math8::{blend8, progress8};
+
 /// Color transition with smooth blending
 #[derive(Clone)]
 pub struct ColorTransition {
@@ -83,31 +85,11 @@ impl ColorTransition {
                 self.from = target;
                 self.target = None;
             } else {
-                // Calculate progress (0-255 for integer math)
-                let progress = ((self.elapsed.as_millis() as u32 * 255)
-                    / self.duration.as_millis() as u32) as u8;
-
-                // Blend colors
+                let progress = progress8(self.elapsed, self.duration);
                 self.current = blend_colors(self.from, target, progress);
             }
         }
     }
-}
-
-/// Blend two 8-bit values
-///
-/// # Arguments
-/// * `a` - First value
-/// * `b` - Second value  
-/// * `amount_of_b` - Blend factor (0 = all a, 255 = all b)
-#[inline]
-pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
-    // Fast integer blend: a + (b - a) * amount / 256
-    let a = i16::from(a);
-    let b = i16::from(b);
-    let amount = i16::from(amount_of_b);
-    
-    (a + (((b - a) * amount) >> 8)) as u8
 }
 
 /// Blend two RGB colors

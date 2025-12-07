@@ -8,7 +8,10 @@ build-esp32:
 run-rs1:
     #!/bin/bash
     source $HOME/export-esp.sh
-    cargo run --release --config .cargo/config_esp32.toml --features rs1
+    cargo run --release --features rs1
+
+lint:
+    cargo clippy --config .cargo/config_esp32.toml
 
 # Test the myrtio-macros crate (requires separate target dir due to workspace esp config)
 test-macros:

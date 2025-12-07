@@ -9,6 +9,8 @@
 
 use smart_leds::RGB;
 
+use crate::math8::scale8;
+
 /// Color correction processor
 ///
 /// Applies per-channel multiplicative scaling to correct color output.
@@ -22,7 +24,11 @@ pub struct ColorCorrection {
 impl Default for ColorCorrection {
     fn default() -> Self {
         Self {
-            factors: RGB { r: 255, g: 255, b: 255 },
+            factors: RGB {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
         }
     }
 }
@@ -83,12 +89,3 @@ impl ColorCorrection {
         }
     }
 }
-
-/// Scale an 8-bit value by a factor (0-255 = 0.0-1.0)
-///
-/// Uses integer math for efficiency on embedded systems.
-#[inline]
-fn scale8(value: u8, scale: u8) -> u8 {
-    ((u16::from(value) * u16::from(scale)) >> 8) as u8
-}
-
