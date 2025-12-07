@@ -14,38 +14,52 @@ doctest = false
 bench = false
 
 [dependencies]
-myrtio_netutils = { workspace = true }
-myrtio_light_composer = { workspace = true }
+myrtio-core = { workspace = true }
+myrtio-light-composer = { workspace = true }
+myrtio-mqtt = { workspace = true }
+myrtio-homeassistant = { workspace = true }
 
-esp-bootloader-esp-idf = { workspace = true }
-esp-hal                = { workspace = true, features = ["esp32", "unstable"] }
-
-embassy-net = { version = "0.7.0", features = [
-  "dhcpv4",
-  "medium-ethernet",
-  "tcp",
-  "udp",
-  "dns",
+esp-alloc = { workspace = true }
+esp-backtrace = { workspace = true, features = [
+    "esp32",
+    "println",
+    "panic-handler",
 ] }
+esp-bootloader-esp-idf = { workspace = true }
+esp-hal = { workspace = true, features = ["esp32", "unstable"] }
+esp-println = { workspace = true, features = ["log-04", "esp32"] }
+esp-radio = { workspace = true, features = ["esp32", "wifi"] }
+esp-rtos = { workspace = true, features = ["esp-radio", "embassy", "esp32"] }
+esp-storage = { workspace = true, features = ["esp32"] }
+esp-hal-smartled = { workspace = true, features = ["esp32"] }
+
+embassy-executor = { workspace = true }
+embassy-sync = { workspace = true }
+embassy-time = { workspace = true, features = ["generic-queue-16"] }
+embassy-net = { workspace = true, features = [
+    "dhcpv4",
+    "medium-ethernet",
+    "tcp",
+    "udp",
+    "dns",
+] }
+embassy-futures = { workspace = true }
 embedded-io = { workspace = true }
 embedded-io-async = { workspace = true }
-esp-alloc = { workspace = true }
+embedded-storage = { workspace = true }
+
 critical-section = { workspace = true }
-embassy-executor = { workspace = true }
-embassy-sync = { version = "0.6" }
-embassy-time = { workspace = true, features = ["generic-queue-16"]}
-embassy-futures = "0.1.2"
 static_cell = { workspace = true }
-esp-rtos = { workspace = true, features = ["esp-radio", "embassy", "esp32"] }
-esp-println = { workspace = true, features = ["log-04", "esp32"] }
-esp-backtrace = { workspace = true, features = ["esp32", "println", "panic-handler"] }
-esp-radio = { workspace = true, features = ["esp32", "wifi"] }
-smart-leds = "0.4.0"
+heapless = { workspace = true }
+smart-leds = { workspace = true }
 
-esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2", features = ["esp32"] }
-myrtio-mqtt = { path = "../../myrtio-mqtt" }
-myrtio_homeassistant = { path = "../../myrtio-homeassistant" }
+[build-dependencies]
+dotenv-build = "0.1.1"
 
+[features]
+default = []
+rs1 = []
 
 [lints]
 workspace = true
+

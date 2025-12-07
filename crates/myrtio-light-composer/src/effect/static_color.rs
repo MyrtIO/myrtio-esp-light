@@ -1,7 +1,7 @@
 //! Static color fill effect
 //!
 //! Fills all LEDs with a single solid color.
-//! Supports smooth color transitions via ColorTransition.
+//! Supports smooth color transitions via [`ColorTransition`].
 
 use embassy_time::Duration;
 use smart_leds::RGB;

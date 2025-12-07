@@ -2,29 +2,23 @@
 //!
 //! A Device represents the physical device that contains one or more entities.
 
-use serde::Serialize;
+use myrtio_macros::ConstBuilder;
 
-use crate::entity::light::LightBuilder;
-use crate::entity::number::NumberBuilder;
-
-/// Device information for Home Assistant discovery
-#[derive(Clone, Serialize)]
+/// Device information for Home Assistant
+///
+/// This is the domain representation of a device. It is converted to
+/// `ha::HaDeviceInfo` for serialization in discovery messages.
+#[derive(Debug, Clone, ConstBuilder)]
 pub struct Device<'a> {
-    /// Device identifier (used in `unique_id` generation)
-    #[serde(skip)]
+    /// Device identifier (used in topic generation and `unique_id`)
     pub id: &'a str,
     /// Human-readable device name
     pub name: &'a str,
-    /// Device identifiers array (contains id)
-    pub identifiers: [&'a str; 1],
     /// Manufacturer name (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub manufacturer: Option<&'a str>,
     /// Model name (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<&'a str>,
     /// Software version (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub sw_version: Option<&'a str>,
 }
 
@@ -34,90 +28,30 @@ impl<'a> Device<'a> {
         Self {
             id,
             name,
-            identifiers: [id],
             manufacturer: None,
             model: None,
             sw_version: None,
         }
     }
 
-    /// Create a builder for more complex device configuration
-    pub const fn builder(id: &'a str) -> DeviceBuilder<'a> {
-        DeviceBuilder::new(id)
-    }
-
-    /// Create a light entity builder for this device
-    pub const fn light(&'a self) -> LightBuilder<'a> {
-        LightBuilder::new(self)
-    }
-
-    /// Create a number entity builder for this device
-    pub const fn number(&'a self, id: &'a str) -> NumberBuilder<'a> {
-        NumberBuilder::new(id, self)
-    }
-}
-
-/// Builder for Device configuration
-pub struct DeviceBuilder<'a> {
-    id: &'a str,
-    name: Option<&'a str>,
-    manufacturer: Option<&'a str>,
-    model: Option<&'a str>,
-    sw_version: Option<&'a str>,
-}
-
-impl<'a> DeviceBuilder<'a> {
-    /// Create a new builder with the device ID
-    pub const fn new(id: &'a str) -> Self {
-        Self {
-            id,
-            name: None,
-            manufacturer: None,
-            model: None,
-            sw_version: None,
-        }
-    }
-
-    /// Set the device name
+    /// Set manufacturer
     #[must_use]
-    pub const fn name(mut self, name: &'a str) -> Self {
-        self.name = Some(name);
-        self
-    }
-
-    /// Set the manufacturer
-    #[must_use]
-    pub const fn manufacturer(mut self, manufacturer: &'a str) -> Self {
+    pub const fn with_manufacturer(mut self, manufacturer: &'a str) -> Self {
         self.manufacturer = Some(manufacturer);
         self
     }
 
-    /// Set the model
+    /// Set model
     #[must_use]
-    pub const fn model(mut self, model: &'a str) -> Self {
+    pub const fn with_model(mut self, model: &'a str) -> Self {
         self.model = Some(model);
         self
     }
 
-    /// Set the software version
+    /// Set software version
     #[must_use]
-    pub const fn sw_version(mut self, sw_version: &'a str) -> Self {
+    pub const fn with_sw_version(mut self, sw_version: &'a str) -> Self {
         self.sw_version = Some(sw_version);
         self
-    }
-
-    /// Build the Device
-    pub const fn build(self) -> Device<'a> {
-        Device {
-            id: self.id,
-            name: match self.name {
-                Some(n) => n,
-                None => self.id,
-            },
-            identifiers: [self.id],
-            manufacturer: self.manufacturer,
-            model: self.model,
-            sw_version: self.sw_version,
-        }
     }
 }

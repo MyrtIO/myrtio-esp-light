@@ -2,8 +2,23 @@
 //!
 //! Provides a way to observe the engine's current state from outside
 //! without direct access to the engine instance.
+//!
+//! ## Brightness Semantics
+//!
+//! The `brightness` field represents the **target brightness** — the brightness
+//! level the light will have when powered on. This value remains stable across
+//! power-off/power-on cycles:
+//!
+//! - When the light is powered off, `brightness` still holds the last set target.
+//! - When the light is powered on, it fades in to this target brightness.
+//! - The `is_on` field indicates whether the light is currently powered on.
+//!
+//! This design allows external systems (e.g., Home Assistant) to display and
+//! control the brightness slider even when the light is off.
 
 use core::sync::atomic::{AtomicU8, Ordering};
+
+use crate::LightSnapshot;
 
 /// Effect identifier for external observation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,6 +27,7 @@ pub enum EffectId {
     Off = 0,
     Rainbow = 1,
     Static = 2,
+    RainbowFlow = 3,
 }
 
 impl From<u8> for EffectId {
@@ -19,6 +35,7 @@ impl From<u8> for EffectId {
         match value {
             1 => Self::Rainbow,
             2 => Self::Static,
+            3 => Self::RainbowFlow,
             _ => Self::Off,
         }
     }
@@ -28,10 +45,17 @@ impl From<u8> for EffectId {
 ///
 /// Uses atomics for lock-free thread-safe access.
 /// The engine updates this state, and external code can read it.
+///
+/// Note: `brightness` is the **target brightness**, not the instantaneous
+/// output level. It remains constant when the light is powered off, so
+/// external systems can display/control brightness even while off.
 pub struct SharedState {
-    /// Target brightness (0-255)
+    /// Target brightness (0-255).
+    ///
+    /// This is the brightness the light will have when on, not the current
+    /// physical output (which may be 0 when powered off).
     brightness: AtomicU8,
-    /// Whether the light is on
+    /// Whether the light is on (1) or off (0).
     is_on: AtomicU8,
     /// Current effect ID
     effect: AtomicU8,
@@ -80,8 +104,6 @@ impl SharedState {
         )
     }
 
-    // === Write methods (for engine to update) ===
-
     /// Set brightness
     pub fn set_brightness(&self, value: u8) {
         self.brightness.store(value, Ordering::Relaxed);
@@ -102,6 +124,14 @@ impl SharedState {
         self.r.store(r, Ordering::Relaxed);
         self.g.store(g, Ordering::Relaxed);
         self.b.store(b, Ordering::Relaxed);
+    }
+
+    /// Set the light state from a [`LightSnapshot`]
+    pub fn set_from_snapshot(&self, snapshot: LightSnapshot) {
+        self.set_brightness(snapshot.brightness);
+        self.set_on(snapshot.is_on);
+        self.set_effect(snapshot.effect);
+        self.set_rgb(snapshot.r, snapshot.g, snapshot.b);
     }
 }
 

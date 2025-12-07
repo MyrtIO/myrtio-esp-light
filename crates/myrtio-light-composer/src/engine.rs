@@ -1,27 +1,51 @@
 //! Light Engine - Main state machine orchestrator
 //!
-//! The LightEngine is the central coordinator that:
+//! The [`LightEngine`] is the central coordinator that:
 //! - Manages the current effect
 //! - Handles effect transitions (fade-out-in)
 //! - Coordinates brightness envelope
 //! - Drives the render loop
 //! - Accepts commands via async channel
-//! - Optionally publishes state to SharedState for external observation
+//! - Optionally publishes state to [`SharedState`] for external observation
+//!
+//! ## Power On/Off Semantics
+//!
+//! The engine distinguishes between **target brightness** and **output brightness**:
+//!
+//! - **Target brightness** (`target_brightness`) is the desired brightness level
+//!   when the light is on. It is stored in `SharedState::brightness` and persists
+//!   across power-off/power-on cycles.
+//!
+//! - **Output brightness** is the actual brightness applied to the LEDs, which
+//!   may be 0 when the engine is stopped (powered off).
+//!
+//! When using `Command::PowerOff`:
+//! - The output fades to 0 over the specified duration.
+//! - `target_brightness` remains unchanged.
+//! - `SharedState::is_on` becomes `false` once fully stopped.
+//! - `SharedState::brightness` continues to report the target brightness.
+//!
+//! When using `Command::PowerOn`:
+//! - The output fades from 0 to `target_brightness`.
+//! - `SharedState::is_on` becomes `true` during/after fade-in.
+//!
+//! This allows external systems to know what brightness the light *will* have
+//! when turned on, even while it is currently off.
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Receiver, Sender}};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Channel, Receiver, Sender},
+};
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::ColorCorrection;
 
 use super::{
-    driver::LedDriver,
-    effect::EffectSlot,
-    processor::OutputProcessor,
-    state::SharedState,
+    driver::LedDriver, effect::EffectSlot, processor::OutputProcessor
 };
 
 /// Default frames per second
-const DEFAULT_FPS: u32 = 60;
+const DEFAULT_FPS: u32 = 90;
 
 /// Command channel capacity
 const COMMAND_CHANNEL_SIZE: usize = 4;
@@ -29,18 +53,17 @@ const COMMAND_CHANNEL_SIZE: usize = 4;
 /// Commands that can be sent to the light engine
 #[derive(Clone)]
 pub enum Command<const N: usize> {
-    /// Set brightness with transition duration
-    SetBrightness {
-        brightness: u8,
-        duration: Duration,
-    },
+    /// Set brightness with transition duration.
+    ///
+    /// This updates both the target brightness and the current output brightness.
+    SetBrightness { brightness: u8, duration: Duration },
     /// Set brightness immediately
     SetBrightnessImmediate(u8),
     /// Switch to a new effect with fade transition
     SwitchEffect(EffectSlot<N>),
     /// Switch effect instantly (no fade)
     SwitchEffectInstant(EffectSlot<N>),
-    /// Update effect color without re-running brightness fade
+    /// Update effect color
     SetColor {
         r: u8,
         g: u8,
@@ -53,16 +76,29 @@ pub enum Command<const N: usize> {
     Start(Duration),
     /// Set transition configuration
     SetTransitionConfig(TransitionConfig),
+    /// Power off the light (fade out to 0, but preserve target brightness).
+    ///
+    /// The target brightness stored in `SharedState` remains unchanged so that
+    /// a subsequent `PowerOn` can restore it. Only the physical LED output
+    /// fades to zero.
+    PowerOff(Duration),
+    /// Power on the light (fade in from 0 to the stored target brightness).
+    ///
+    /// Restores the brightness that was set before power-off.
+    PowerOn(Duration),
 }
 
 /// Type alias for command sender
-pub type CommandSender<const N: usize> = Sender<'static, CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
+pub type CommandSender<const N: usize> =
+    Sender<'static, CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
 
 /// Type alias for command receiver  
-pub type CommandReceiver<const N: usize> = Receiver<'static, CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
+pub type CommandReceiver<const N: usize> =
+    Receiver<'static, CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
 
 /// Type alias for the command channel
-pub type CommandChannel<const N: usize> = Channel<CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
+pub type CommandChannel<const N: usize> =
+    Channel<CriticalSectionRawMutex, Command<N>, COMMAND_CHANNEL_SIZE>;
 
 /// Engine state machine states
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -116,7 +152,7 @@ impl TransitionConfig {
 /// Light Engine - the main orchestrator
 ///
 /// Generic over `D: LedDriver` to support different hardware backends.
-pub struct LightEngine<'a, D: LedDriver<N>, const N: usize> {
+pub struct LightEngine<D: LedDriver<N>, const N: usize> {
     /// Hardware driver for LED output
     driver: D,
     /// Command receiver
@@ -139,11 +175,9 @@ pub struct LightEngine<'a, D: LedDriver<N>, const N: usize> {
     start_time: Instant,
     /// Next scheduled tick time for consistent FPS
     next_tick: Instant,
-    /// Optional shared state for external observation
-    shared_state: Option<&'a SharedState>,
 }
 
-impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
+impl<D: LedDriver<N>, const N: usize> LightEngine<D, N> {
     /// Create a new light engine with command channel
     ///
     /// Returns the engine and a sender for commands.
@@ -155,21 +189,13 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
             current_effect: EffectSlot::default(),
             pending_effect: None,
             processor: OutputProcessor::with_brightness(255),
-            state: EngineState::Running,
+            state: EngineState::Stopped,
             transition_config: TransitionConfig::default(),
             target_brightness: 255,
             frame_duration: Duration::from_millis(1000 / u64::from(DEFAULT_FPS)),
             start_time: now,
             next_tick: now,
-            shared_state: None,
         }
-    }
-
-    /// Attach shared state for external observation
-    #[must_use]
-    pub fn with_shared_state(mut self, state: &'a SharedState) -> Self {
-        self.shared_state = Some(state);
-        self
     }
 
     /// Set the output processor
@@ -177,18 +203,6 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     pub fn with_color_correction(mut self, color_correction: ColorCorrection) -> Self {
         self.processor.color_correction = color_correction;
         self
-    }
-
-    /// Publish current state to shared state (if attached)
-    fn publish_state(&self) {
-        if let Some(shared) = self.shared_state {
-            shared.set_brightness(self.target_brightness);
-            shared.set_on(self.state != EngineState::Stopped);
-            shared.set_effect(self.current_effect.effect_id());
-            if let Some((r, g, b)) = self.current_effect.color_if_supported() {
-                shared.set_rgb(r, g, b);
-            }
-        }
     }
 
     /// Set the target frame rate
@@ -214,9 +228,7 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     /// Set global brightness with transition
     pub fn set_brightness(&mut self, brightness: u8, duration: Duration) {
         self.target_brightness = brightness;
-        if self.state == EngineState::Running {
-            self.processor.brightness.set(brightness, duration);
-        }
+        self.processor.brightness.set(brightness, duration);
     }
 
     /// Set global brightness immediately
@@ -255,10 +267,9 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
                 // Set effect and start fade-in
                 self.current_effect = effect;
                 self.current_effect.reset();
-                self.processor.brightness.fade_in(
-                    self.target_brightness,
-                    config.fade_in_duration,
-                );
+                self.processor
+                    .brightness
+                    .fade_in(self.target_brightness, config.fade_in_duration);
                 self.state = EngineState::FadingIn;
             }
         }
@@ -267,6 +278,11 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     /// Switch effect instantly (no fade)
     pub fn switch_effect_instant(&mut self, effect: EffectSlot<N>) {
         self.switch_effect_with_config(effect, TransitionConfig::instant());
+    }
+
+    pub fn set_effect(&mut self, effect: EffectSlot<N>) {
+        self.current_effect = effect;
+        self.current_effect.reset();
     }
 
     /// Stop the engine (fade out and turn off)
@@ -284,16 +300,40 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
     /// Start the engine (fade in)
     pub fn start(&mut self, fade_duration: Duration) {
         if self.state == EngineState::Stopped {
-            self.processor.brightness.fade_in(self.target_brightness, fade_duration);
+            self.processor
+                .brightness
+                .fade_in(self.target_brightness, fade_duration);
             self.state = EngineState::FadingIn;
         }
+    }
+
+    /// Power off the light (fade out to 0, preserving target brightness).
+    ///
+    /// Unlike `stop`, this method does **not** modify `target_brightness`.
+    /// The brightness stored in `SharedState` remains the same so that
+    /// `power_on` can restore it later.
+    pub fn power_off(&mut self, fade_duration: Duration) {
+        // Delegate to stop for the actual fade-out logic.
+        // target_brightness is intentionally left unchanged.
+        self.stop(fade_duration);
+    }
+
+    /// Power on the light (fade in from 0 to the stored target brightness).
+    ///
+    /// Restores the brightness that was set before `power_off`.
+    pub fn power_on(&mut self, fade_duration: Duration) {
+        // Delegate to start which already fades in to target_brightness.
+        self.start(fade_duration);
     }
 
     /// Process pending commands from the channel (non-blocking)
     fn process_commands(&mut self) {
         while let Ok(cmd) = self.commands.try_receive() {
             match cmd {
-                Command::SetBrightness { brightness, duration } => {
+                Command::SetBrightness {
+                    brightness,
+                    duration,
+                } => {
                     self.set_brightness(brightness, duration);
                 }
                 Command::SetBrightnessImmediate(brightness) => {
@@ -306,11 +346,7 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
                     self.switch_effect_instant(effect);
                 }
                 Command::SetColor { r, g, b, duration } => {
-                    self.current_effect
-                        .set_color_rgb(r, g, b, duration);
-                    if let Some(shared) = self.shared_state {
-                        shared.set_rgb(r, g, b);
-                    }
+                    self.current_effect.set_color_rgb(r, g, b, duration);
                 }
                 Command::Stop(duration) => {
                     self.stop(duration);
@@ -320,6 +356,12 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
                 }
                 Command::SetTransitionConfig(config) => {
                     self.set_transition_config(config);
+                }
+                Command::PowerOff(duration) => {
+                    self.power_off(duration);
+                }
+                Command::PowerOn(duration) => {
+                    self.power_on(duration);
                 }
             }
         }
@@ -340,9 +382,6 @@ impl<'a, D: LedDriver<N>, const N: usize> LightEngine<'a, D, N> {
 
         // Handle state machine transitions
         self.update_state();
-
-        // Publish state to shared state (if attached)
-        self.publish_state();
 
         // Get elapsed time since engine start (for effect animations)
         let elapsed = self.start_time.elapsed();

@@ -34,7 +34,7 @@ impl ColorCorrection {
     }
 
     /// Create color correction from a u32 color value (0xRRGGBB format)
-    pub fn from_rgb(color: u32) -> Self {
+    pub const fn from_rgb(color: u32) -> Self {
         let r = ((color >> 16) & 0xFF) as u8;
         let g = ((color >> 8) & 0xFF) as u8;
         let b = (color & 0xFF) as u8;

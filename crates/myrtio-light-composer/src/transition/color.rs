@@ -103,9 +103,9 @@ impl ColorTransition {
 #[inline]
 pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
     // Fast integer blend: a + (b - a) * amount / 256
-    let a = a as i16;
-    let b = b as i16;
-    let amount = amount_of_b as i16;
+    let a = i16::from(a);
+    let b = i16::from(b);
+    let amount = i16::from(amount_of_b);
     
     (a + (((b - a) * amount) >> 8)) as u8
 }

@@ -1,14 +1,13 @@
-//! Number entity for Home Assistant MQTT integration
+//! Number entity domain types
 //!
-//! Supports numeric values with min/max range, step, and unit of measurement.
-
-use heapless::String;
-use serde::Serialize;
+//! These are domain DTOs for number entities, independent of the Home Assistant
+//! wire format. They are converted to `ha::*` types for MQTT communication.
 
 use crate::device::Device;
+use myrtio_macros::ConstBuilder;
 
-/// Number entity configuration for Home Assistant discovery
-#[derive(Clone)]
+/// Number entity configuration (domain type)
+#[derive(Clone, ConstBuilder)]
 pub struct NumberEntity<'a> {
     /// Entity identifier suffix (combined with device id for `unique_id`)
     pub id: &'a str,
@@ -32,41 +31,64 @@ pub struct NumberEntity<'a> {
     pub mode: Option<&'a str>,
 }
 
-impl NumberEntity<'_> {
-    /// Get the unique ID for this entity
-    pub fn unique_id<const N: usize>(&self) -> String<N> {
-        let mut id = String::new();
-        let _ = id.push_str(self.device.id);
-        let _ = id.push('_');
-        let _ = id.push_str(self.id);
-        id
+impl<'a> NumberEntity<'a> {
+    /// Create a new number entity with required fields
+    pub const fn new(id: &'a str, name: &'a str, device: &'a Device<'a>) -> Self {
+        Self {
+            id,
+            name,
+            device,
+            icon: None,
+            device_class: None,
+            unit: None,
+            min: 0,
+            max: 100,
+            step: None,
+            mode: None,
+        }
     }
 
-    /// Get the state topic for this entity
-    pub fn state_topic<const N: usize>(&self) -> String<N> {
-        let mut topic = String::new();
-        let _ = topic.push_str(self.device.id);
-        let _ = topic.push('/');
-        let _ = topic.push_str(self.id);
-        topic
+    /// Set icon
+    #[must_use]
+    pub const fn with_icon(mut self, icon: &'a str) -> Self {
+        self.icon = Some(icon);
+        self
     }
 
-    /// Get the command topic for this entity
-    pub fn command_topic<const N: usize>(&self) -> String<N> {
-        let mut topic: String<N> = self.state_topic();
-        let _ = topic.push_str("/set");
-        topic
+    /// Set device class
+    #[must_use]
+    pub const fn with_device_class(mut self, device_class: &'a str) -> Self {
+        self.device_class = Some(device_class);
+        self
     }
 
-    /// Get the config topic for Home Assistant discovery
-    pub fn config_topic<const N: usize>(&self) -> String<N> {
-        let mut topic = String::new();
-        let _ = topic.push_str("homeassistant/number/");
-        let _ = topic.push_str(self.device.id);
-        let _ = topic.push('_');
-        let _ = topic.push_str(self.id);
-        let _ = topic.push_str("/config");
-        topic
+    /// Set unit of measurement
+    #[must_use]
+    pub const fn with_unit(mut self, unit: &'a str) -> Self {
+        self.unit = Some(unit);
+        self
+    }
+
+    /// Set value range
+    #[must_use]
+    pub const fn with_range(mut self, min: i32, max: i32) -> Self {
+        self.min = min;
+        self.max = max;
+        self
+    }
+
+    /// Set step increment
+    #[must_use]
+    pub const fn with_step(mut self, step: f32) -> Self {
+        self.step = Some(step);
+        self
+    }
+
+    /// Set display mode ("auto", "box", "slider")
+    #[must_use]
+    pub const fn with_mode(mut self, mode: &'a str) -> Self {
+        self.mode = Some(mode);
+        self
     }
 }
 
@@ -77,155 +99,5 @@ pub struct NumberRegistration<'a> {
     pub on_command: fn(i32),
 }
 
-/// Builder for `NumberEntity` with callbacks
-pub struct NumberBuilder<'a> {
-    id: &'a str,
-    device: &'a Device<'a>,
-    name: Option<&'a str>,
-    icon: Option<&'a str>,
-    device_class: Option<&'a str>,
-    unit: Option<&'a str>,
-    min: i32,
-    max: i32,
-    step: Option<f32>,
-    mode: Option<&'a str>,
-    provide_state: Option<fn() -> i32>,
-    on_command: Option<fn(i32)>,
-}
 
-impl<'a> NumberBuilder<'a> {
-    pub const fn new(id: &'a str, device: &'a Device<'a>) -> Self {
-        Self {
-            id,
-            device,
-            name: None,
-            icon: None,
-            device_class: None,
-            unit: None,
-            min: 0,
-            max: 100,
-            step: None,
-            mode: None,
-            provide_state: None,
-            on_command: None,
-        }
-    }
 
-    /// Set the entity name
-    #[must_use]
-    pub const fn name(mut self, name: &'a str) -> Self {
-        self.name = Some(name);
-        self
-    }
-
-    /// Set the MDI icon
-    #[must_use]
-    pub const fn icon(mut self, icon: &'a str) -> Self {
-        self.icon = Some(icon);
-        self
-    }
-
-    /// Set the device class
-    #[must_use]
-    pub const fn device_class(mut self, device_class: &'a str) -> Self {
-        self.device_class = Some(device_class);
-        self
-    }
-
-    /// Set the unit of measurement
-    #[must_use]
-    pub const fn unit(mut self, unit: &'a str) -> Self {
-        self.unit = Some(unit);
-        self
-    }
-
-    /// Set the minimum value
-    #[must_use]
-    pub const fn min(mut self, min: i32) -> Self {
-        self.min = min;
-        self
-    }
-
-    /// Set the maximum value
-    #[must_use]
-    pub const fn max(mut self, max: i32) -> Self {
-        self.max = max;
-        self
-    }
-
-    /// Set the value range (min and max)
-    #[must_use]
-    pub const fn range(mut self, min: i32, max: i32) -> Self {
-        self.min = min;
-        self.max = max;
-        self
-    }
-
-    /// Set the step increment
-    #[must_use]
-    pub const fn step(mut self, step: f32) -> Self {
-        self.step = Some(step);
-        self
-    }
-
-    /// Set the display mode ("auto", "box", "slider")
-    #[must_use]
-    pub const fn mode(mut self, mode: &'a str) -> Self {
-        self.mode = Some(mode);
-        self
-    }
-
-    /// Set the state provider callback
-    #[must_use]
-    pub const fn provide_state(mut self, f: fn() -> i32) -> Self {
-        self.provide_state = Some(f);
-        self
-    }
-
-    /// Set the command handler callback
-    #[must_use]
-    pub const fn on_command(mut self, f: fn(i32)) -> Self {
-        self.on_command = Some(f);
-        self
-    }
-
-    /// Build the `NumberRegistration` (entity + callbacks)
-    ///
-    /// # Panics
-    /// Panics if `provide_state` or `on_command` callbacks are not set.
-    pub fn build(self) -> NumberRegistration<'a> {
-        NumberRegistration {
-            entity: NumberEntity {
-                id: self.id,
-                name: match self.name {
-                    Some(n) => n,
-                    None => self.id,
-                },
-                device: self.device,
-                icon: self.icon,
-                device_class: self.device_class,
-                unit: self.unit,
-                min: self.min,
-                max: self.max,
-                step: self.step,
-                mode: self.mode,
-            },
-            provide_state: self
-                .provide_state
-                .expect("provide_state callback is required"),
-            on_command: self.on_command.expect("on_command callback is required"),
-        }
-    }
-}
-
-/// Number state for serialization (just the value)
-#[derive(Debug, Clone, Serialize)]
-pub struct NumberState {
-    pub value: i32,
-}
-
-impl NumberState {
-    pub const fn new(value: i32) -> Self {
-        Self { value }
-    }
-}

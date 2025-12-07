@@ -1,14 +1,14 @@
 //! Rainbow cycling effects
 //!
 //! Provides two rainbow effect variants:
-//! - `RainbowEffect`: Uses fixed-point HSV gradient algorithm (ported from FastLED)
+//! - `RainbowEffect`: Uses fixed-point HSV gradient algorithm (ported from `FastLED`)
 //! - `RainbowFlowEffect`: Three-point mirrored gradient with smooth flow
 
 use core::cmp::min;
 use embassy_time::Duration;
 use smart_leds::{
-    hsv::{hsv2rgb, Hsv},
     RGB,
+    hsv::{Hsv, hsv2rgb},
 };
 
 use super::EffectImpl;
@@ -22,7 +22,7 @@ const HUE_STEP: u8 = 60;
 
 /// Rainbow effect using fixed-point HSV gradient algorithm
 ///
-/// This implementation is ported from the FastLED `fillGradient` function
+/// This implementation is ported from the `FastLED` `fillGradient` function
 /// and uses 8.24 fixed-point arithmetic for smooth color transitions.
 #[derive(Clone)]
 pub struct RainbowEffect {
@@ -106,7 +106,7 @@ impl<const N: usize> EffectImpl<N> for RainbowEffect {
 
         // Compute center for mirroring
         let mut center_len = N / 2;
-        if N % 2 != 0 {
+        if !N.is_multiple_of(2) {
             center_len += 1;
         }
         center_len = min(center_len, N);
@@ -215,7 +215,7 @@ impl<const N: usize> EffectImpl<N> for RainbowFlowEffect {
         };
 
         let mut center_len = N / 2;
-        if N % 2 != 0 {
+        if !N.is_multiple_of(2) {
             center_len += 1;
         }
         center_len = min(center_len, N);
@@ -246,8 +246,12 @@ enum GradientDirection {
     Shortest,
 }
 
-/// Fill gradient using fixed-point 8.24 arithmetic (ported from FastLED)
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_lossless)]
+/// Fill gradient using fixed-point 8.24 arithmetic (ported from `FastLED`)
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_lossless
+)]
 fn fill_gradient_fp(
     leds: &mut [RGB<u8>],
     start_pos: usize,
@@ -301,7 +305,11 @@ fn fill_gradient_fp(
     };
 
     let pixel_distance = end_pos.saturating_sub(start_pos);
-    let divisor = if pixel_distance == 0 { 1 } else { pixel_distance as i32 };
+    let divisor = if pixel_distance == 0 {
+        1
+    } else {
+        pixel_distance as i32
+    };
 
     // Calculate 8.23 fixed-point deltas
     let hue_delta823 = ((i32::from(hue_distance87) * 65536) / divisor) * 2;
@@ -314,8 +322,8 @@ fn fill_gradient_fp(
     let mut val824 = u32::from(start_color.val) << 24;
 
     let end_pos = end_pos.min(leds.len() - 1);
-    for i in start_pos..=end_pos {
-        leds[i] = hsv2rgb(Hsv {
+    for led in leds.iter_mut().take(end_pos + 1).skip(start_pos) {
+        *led = hsv2rgb(Hsv {
             hue: (hue824 >> 24) as u8,
             sat: (sat824 >> 24) as u8,
             val: (val824 >> 24) as u8,
@@ -437,7 +445,11 @@ fn wrap_hue_float(start_hue: u8, delta: i16, t: f32) -> u8 {
     value.rem_euclid(256) as u8
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_lossless)]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_lossless
+)]
 fn lerp_channel_float(start: u8, end: u8, t: f32) -> u8 {
     if start == end {
         return start;

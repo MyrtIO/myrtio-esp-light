@@ -21,6 +21,8 @@ embedded-hal-async = { workspace = true }
 embedded-io-async = { workspace = true }
 heapless = "0.9"
 embassy-time = { workspace = true }
+embassy-sync = { workspace = true }
+embassy-futures = { workspace = true }
 embassy-net = { workspace = true, features = [
     "tcp",
     "medium-ethernet",
@@ -28,11 +30,3 @@ embassy-net = { workspace = true, features = [
 ]}
 futures = { version = "0.3.30", default-features = false }
 defmt = { version = "0.3", optional = true }
-
-[[example]]
-name = "esp8266_uart"
-path = "examples/esp8266_uart.rs"
-
-[[example]]
-name = "smoltcp_ethernet"
-path = "examples/smoltcp_ethernet.rs"

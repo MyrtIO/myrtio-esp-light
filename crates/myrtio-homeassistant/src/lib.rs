@@ -1,68 +1,78 @@
-//! # Home Assistant MQTT Integration Library
+//! Home Assistant MQTT integration for embedded devices
 //!
-//! `myrtio-homeassistant` provides a `no_std` compatible library for integrating
-//! devices with Home Assistant via MQTT discovery protocol.
+//! This crate provides types and utilities for integrating with Home Assistant
+//! via MQTT discovery. It is structured in three layers:
 //!
-//! ## Features
+//! - **Domain layer** (`device`, `entity`): Platform-independent DTOs for devices and entities
+//! - **HA wire layer** (`ha`): JSON-serializable types matching Home Assistant's MQTT schema
+//! - **MQTT integration** (`mqtt_module`): `HaModule` implementing `MqttModule` for `myrtio-mqtt`
 //!
-//! - **`no_std` & `no_alloc`:** Designed for embedded systems using `heapless` collections
-//! - **Builder Pattern:** Fluent API for configuring entities with callbacks
-//! - **Device-centric:** Create entities from device, namespace included
-//! - **Automatic Discovery:** Publishes Home Assistant MQTT discovery configs
+//! # Example
 //!
-//! ## Example
+//! ```ignore
+//! use myrtio_homeassistant::{Device, LightEntity, LightRegistration, LightState, HaModule};
 //!
-//! ```rust,ignore
-//! use myrtio_homeassistant::{Device, HomeAssistantClient, LightState, LightCommand};
+//! const DEVICE: Device = Device::new("my_light", "My Light");
+//! const LIGHT: LightEntity = LightEntity::new("main", "Main Light", &DEVICE)
+//!     .with_brightness(true);
 //!
-//! static DEVICE: Device = Device::builder("myrt_light_01")
-//!     .namespace("myrtlight")
-//!     .name("Myrt Light")
-//!     .manufacturer("Myrtio")
-//!     .build();
-//!
-//! fn get_light_state() -> LightState<'static> {
-//!     LightState::on().brightness(128)
+//! fn provide_state() -> LightState {
+//!     LightState::on().with_brightness(255)
 //! }
 //!
-//! fn handle_light_command(cmd: LightCommand<'_>) {
-//!     if cmd.is_off() {
-//!         // Turn off
-//!     } else if let Some(brightness) = cmd.brightness {
-//!         // Set brightness
-//!     }
-//! }
-//!
-//! async fn run(mqtt: MqttClient<...>) {
-//!     let mut ha = HomeAssistantClient::<_, 8, 512, 4, 4>::new(&DEVICE, mqtt);
-//!
-//!     ha.add_light(DEVICE.light("main")
-//!         .name("Main Light")
-//!         .brightness(true)
-//!         .provide_state(get_light_state)
-//!         .on_command(handle_light_command)
-//!         .build()).unwrap();
-//!
-//!     ha.announce_all().await.unwrap();
-//!
-//!     loop {
-//!         ha.poll().await.unwrap();
-//!         ha.publish_states().await.unwrap();
-//!     }
+//! fn on_command(cmd: LightCommand) {
+//!     // Handle command
 //! }
 //! ```
 
 #![no_std]
 
-pub mod client;
 pub mod device;
 pub mod entity;
-pub mod error;
-pub mod topic;
+pub mod ha;
+pub mod mqtt_module;
 
-// Re-export key types for convenient access
-pub use client::HomeAssistantClient;
+// Re-export domain types
 pub use device::{Device, DeviceBuilder};
-pub use entity::light::{ColorMode, LightBuilder, LightCommand, LightEntity, LightRegistration, LightState, RgbColor};
-pub use entity::number::{NumberBuilder, NumberEntity, NumberRegistration, NumberState};
-pub use error::HaError;
+pub use entity::{
+    ColorMode, LightCommand, LightEntity, LightEntityBuilder, LightRegistration, LightState,
+    NumberEntity, NumberEntityBuilder, NumberRegistration, RgbColor,
+};
+
+// Re-export MQTT integration
+pub use mqtt_module::HaModule;
+
+// Re-export HA types for advanced usage
+pub use ha::{HaDeviceInfo, HaLightCommand, HaLightDiscovery, HaLightState, HaNumberDiscovery};
+
+use myrtio_mqtt::error::MqttError;
+
+/// Error type for Home Assistant operations
+#[derive(Debug)]
+pub enum Error<E> {
+    /// MQTT communication error
+    Mqtt(MqttError<E>),
+    /// JSON serialization error
+    Serialization,
+    /// JSON deserialization error
+    Deserialization,
+    /// Maximum entities reached
+    MaxEntitiesReached,
+}
+
+impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::Mqtt(e) => write!(f, "MQTT error: {:?}", e),
+            Error::Serialization => write!(f, "JSON serialization error"),
+            Error::Deserialization => write!(f, "JSON deserialization error"),
+            Error::MaxEntitiesReached => write!(f, "Maximum entities reached"),
+        }
+    }
+}
+
+impl<E> From<MqttError<E>> for Error<E> {
+    fn from(e: MqttError<E>) -> Self {
+        Error::Mqtt(e)
+    }
+}

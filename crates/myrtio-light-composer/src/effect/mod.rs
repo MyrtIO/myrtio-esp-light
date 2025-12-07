@@ -58,6 +58,65 @@ impl<const N: usize> Default for EffectSlot<N> {
     }
 }
 
+/// Known effect names that can be requested.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EffectName {
+    /// Static single color
+    Static,
+    /// Rainbow cycling effect
+    Rainbow,
+    /// Rainbow flow effect (three-point mirrored)
+    RainbowFlow,
+}
+
+pub const EFFECT_NAME_STATIC: &str = "static";
+pub const EFFECT_NAME_RAINBOW: &str = "rainbow";
+pub const EFFECT_NAME_RAINBOW_FLOW: &str = "rainbow_flow";
+
+impl EffectName {
+    pub fn to_effect_slot<const N: usize>(self, r: u8, g: u8, b: u8) -> EffectSlot<N> {
+        match self {
+            Self::Static => EffectSlot::Static(StaticColorEffect::from_rgb(r, g, b)),
+            Self::Rainbow => EffectSlot::Rainbow(RainbowEffect::default()),
+            Self::RainbowFlow => EffectSlot::RainbowFlow(RainbowFlowEffect::default()),
+        }
+    }
+
+    pub const fn from_id(id: EffectId) -> Option<Self> {
+        Some(match id {
+            EffectId::Static => Self::Static,
+            EffectId::Rainbow => Self::Rainbow,
+            EffectId::RainbowFlow => Self::RainbowFlow,
+            EffectId::Off => return None,
+        })
+    }
+
+    pub const fn to_id(self) -> Option<EffectId> {
+        Some(match self {
+            Self::Static => EffectId::Static,
+            Self::Rainbow => EffectId::Rainbow,
+            Self::RainbowFlow => EffectId::RainbowFlow,
+        })
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Static => EFFECT_NAME_STATIC,
+            Self::Rainbow => EFFECT_NAME_RAINBOW,
+            Self::RainbowFlow => EFFECT_NAME_RAINBOW_FLOW,
+        }
+    }
+
+    pub fn parse_from_str(s: &str) -> Option<Self> {
+        match s {
+            EFFECT_NAME_STATIC => Some(Self::Static),
+            EFFECT_NAME_RAINBOW => Some(Self::Rainbow),
+            EFFECT_NAME_RAINBOW_FLOW => Some(Self::RainbowFlow),
+            _ => None,
+        }
+    }
+}
+
 impl<const N: usize> EffectSlot<N> {
     /// Render the current effect
     pub fn render(&mut self, time: Duration) -> [RGB<u8>; N] {

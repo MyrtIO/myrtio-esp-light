@@ -8,6 +8,7 @@
 //! need for the `#[async_trait]` macro.
 
 use crate::error::MqttError;
+use embassy_net::tcp::{TcpSocket, Error as TcpError};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 
@@ -18,9 +19,6 @@ use embedded_io_async::Write;
 pub struct ErrorPlaceHolder;
 
 /// A trait representing a transport for MQTT packets.
-///
-/// This trait abstracts over any reliable, ordered, stream-based communication channel.
-// `async fn` in traits is now stable in Rust 2024, so `#[async_trait]` is not needed.
 #[allow(async_fn_in_trait)]
 pub trait MqttTransport {
     /// The error type returned by the transport.
@@ -45,17 +43,17 @@ pub trait TransportError: core::fmt::Debug {}
 impl<T: core::fmt::Debug> TransportError for MqttError<T> {}
 
 // Implement TransportError for embassy_net tcp error
-impl TransportError for embassy_net::tcp::Error {}
+impl TransportError for TcpError {}
 
 /// TCP transport implementation using `embassy-net`.
 pub struct TcpTransport<'a> {
-    socket: embassy_net::tcp::TcpSocket<'a>,
+    socket: TcpSocket<'a>,
     timeout: Duration,
 }
 
 impl<'a> TcpTransport<'a> {
     /// Creates a new `TcpTransport` with the given socket and timeout.
-    pub fn new(socket: embassy_net::tcp::TcpSocket<'a>, timeout: Duration) -> Self {
+    pub fn new(socket: TcpSocket<'a>, timeout: Duration) -> Self {
         Self { socket, timeout }
     }
 

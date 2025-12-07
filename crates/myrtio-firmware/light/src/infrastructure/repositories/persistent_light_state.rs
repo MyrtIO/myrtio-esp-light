@@ -1,0 +1,80 @@
+use core::cell::RefCell;
+
+use embassy_sync::blocking_mutex::Mutex;
+use esp_hal::peripherals::FLASH;
+use myrtio_core::storage::{Encodable, MAGIC_HEADER_SIZE, PersistentStorage, StorageDriver};
+
+use crate::domain::entity::LightState;
+use crate::domain::ports::{LightStateReader, PersistentLightStateWriter};
+use crate::infrastructure::drivers::EspNorFlashStorageDriver;
+use crate::infrastructure::types::LightStorageMutex;
+
+/// Concrete storage driver used by the firmware.
+pub(crate) type LightStorageDriver = EspNorFlashStorageDriver<{ STORAGE_SIZE }>;
+
+/// Convenience alias for persistent light storage with a generic driver.
+pub(crate) type LightStorage<DRIVER> = PersistentStorage<DRIVER, { STORAGE_SIZE }>;
+
+/// Concrete storage driver used by the firmware.
+pub(crate) type LightNorFlashStorage = LightStorage<LightStorageDriver>;
+
+const LIGHT_STATE_SIZE: usize = 6;
+
+impl Encodable<LIGHT_STATE_SIZE> for LightState {
+    fn encode(self) -> [u8; LIGHT_STATE_SIZE] {
+        [
+            u8::from(self.power),
+            self.brightness,
+            self.effect_id,
+            self.color.0,
+            self.color.1,
+            self.color.2,
+        ]
+    }
+
+    fn decode(data: &[u8]) -> Option<LightState> {
+        if data.len() != LIGHT_STATE_SIZE {
+            return None;
+        }
+        Some(LightState {
+            power: data[0] != 0,
+            brightness: data[1],
+            effect_id: data[2],
+            color: (data[3], data[4], data[5]),
+        })
+    }
+}
+
+/// Total size of the light state in storage
+const STORAGE_SIZE: usize = LIGHT_STATE_SIZE + MAGIC_HEADER_SIZE;
+
+impl<DRIVER> LightStateReader for LightStorage<DRIVER>
+where
+    DRIVER: StorageDriver<{ STORAGE_SIZE }>,
+{
+    fn get_light_state(&self) -> Option<LightState> {
+        self.load::<{ LIGHT_STATE_SIZE }, LightState>()
+            .map_err(|_| ())
+            .ok()
+    }
+}
+
+impl<DRIVER> PersistentLightStateWriter for LightStorage<DRIVER>
+where
+    DRIVER: StorageDriver<{ STORAGE_SIZE }>,
+{
+    fn save_state(&mut self, state: LightState) -> Result<(), ()> {
+        self.save::<{ LIGHT_STATE_SIZE }, LightState>(&state)
+            .map_err(|_| ())
+    }
+}
+
+/// Initialize the flash storage
+pub(crate) fn init_flash_storage(
+    flash: FLASH<'static>,
+) -> LightStorageMutex {
+    let driver = LightStorageDriver::new(flash);
+    let storage = LightNorFlashStorage::new(driver);
+
+    Mutex::new(RefCell::new(storage))
+}

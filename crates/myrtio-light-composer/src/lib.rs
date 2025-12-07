@@ -3,8 +3,8 @@
 //! Light Engine v2 - State Machine Architecture
 //!
 //! Architecture layers:
-//! - `driver` - Hardware abstraction (LedDriver trait + implementations)
-//! - `effect` - Effect implementations and EffectSlot enum
+//! - `driver` - Hardware abstraction (`[LedDriver]` trait + implementations)
+//! - `effect` - Effect implementations and [`EffectSlot`] enum
 //! - `processor` - Output processing (brightness, gamma, etc.)
 //! - `transition` - Reusable transition utilities (color, etc.)
 //! - `engine` - Main state machine orchestrator
@@ -15,6 +15,7 @@
 pub mod driver;
 pub mod effect;
 pub mod engine;
+pub mod models;
 pub mod processor;
 pub mod state;
 pub mod transition;
@@ -39,3 +40,5 @@ pub use state::{EffectId, SharedState};
 
 // Transition exports
 pub use transition::ColorTransition;
+
+pub use models::LightSnapshot;

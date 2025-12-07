@@ -114,6 +114,12 @@ impl<const N: usize> BrightnessEnvelope<N> {
     }
 
     /// Update with specific delta time
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_lossless,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     pub fn tick_with_delta(&mut self, delta: Duration) {
         if let Some(ref mut transition) = self.transition {
             transition.elapsed += delta;
@@ -163,6 +169,7 @@ impl<const N: usize> BrightnessEnvelope<N> {
 ///
 /// Uses integer math for efficiency on embedded systems.
 #[inline]
+#[allow(clippy::cast_lossless)]
 fn scale8(value: u8, scale: u8) -> u8 {
     ((value as u16 * scale as u16) >> 8) as u8
 }

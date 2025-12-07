@@ -1,10 +1,11 @@
 [workspace]
 members = [
-  "crates/myrtio-firmware/light",
-  "crates/myrtio-light-composer",
-  "crates/myrtio-mqtt",
-  "crates/myrtio-homeassistant",
-  "crates/myrtio-netutils",
+    "crates/myrtio-firmware/light",
+    "crates/myrtio-light-composer",
+    "crates/myrtio-mqtt",
+    "crates/myrtio-homeassistant",
+    "crates/myrtio-core",
+    "crates/myrtio-macros",
 ]
 resolver = "2"
 
@@ -14,11 +15,12 @@ rust-version = "1.90"
 license = "MIT"
 
 [workspace.dependencies]
-myrtio_light_firmware = { path = "crates/myrtio-firmware/light" }
-myrtio_light_composer = { path = "crates/myrtio-light-composer" }
-myrtio_mqtt = { path = "crates/myrtio-mqtt" }
-myrtio_homeassistant = { path = "crates/myrtio-homeassistant" }
-myrtio_netutils = { path = "crates/myrtio-netutils" }
+myrtio-light-firmware = { path = "crates/myrtio-firmware/light" }
+myrtio-light-composer = { path = "crates/myrtio-light-composer" }
+myrtio-mqtt = { path = "crates/myrtio-mqtt" }
+myrtio-homeassistant = { path = "crates/myrtio-homeassistant" }
+myrtio-core = { path = "crates/myrtio-core" }
+myrtio-macros = { path = "crates/myrtio-macros" }
 
 esp-bootloader-esp-idf = "0.1.0"
 esp-hal = "1.0.0"
@@ -27,27 +29,42 @@ esp-rtos = "0.2.0"
 esp-println = "0.16.1"
 esp-backtrace = "0.18.1"
 esp-radio = "0.17.0"
+esp-storage = "0.8.0"
+esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2" }
+
+embedded-storage = "0.3.1"
 
 embassy-executor = "0.9.1"
 embassy-time = "0.5.0"
-embassy-net = { version = "0.7.0", features = [
+embassy-net = { version = "0.7.1", features = [
     "dhcpv4",
     "medium-ethernet",
     "tcp",
     "udp",
 ] }
+embassy-sync = { version = "0.7.2" }
+embassy-futures = { version = "0.1.2" }
 
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
 embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
+
 critical-section = "1.2.0"
 static_cell = { version = "2.1.0", features = ["nightly"] }
+heapless = "0.9"
+smart-leds = "0.4.0"
+
+serde = { version = "1.0.228", default-features = false }
+serde-json-core = "0.6.0"
 
 [profile.dev]
 # Rust debug is too slow.
 # For debug builds always builds with some optimization
 opt-level = "s"
+
+[profile.dev.package.esp-storage]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1        # LLVM can perform better optimizations using a single thread
@@ -57,6 +74,9 @@ incremental = false
 lto = 'fat'
 opt-level = 's'
 overflow-checks = false
+
+[profile.release.package.esp-storage]
+opt-level = 3
 
 [workspace.lints.rust]
 unreachable_pub = "warn"
@@ -69,6 +89,7 @@ char_lit_as_u8 = "allow"
 collapsible_else_if = "allow"
 collapsible_if = "allow"
 implicit_hasher = "allow"
+items_after_statements = "allow"
 map_unwrap_or = "allow"
 match_same_arms = "allow"
 missing_errors_doc = "allow"
@@ -84,8 +105,8 @@ print_stdout = "warn"
 print_stderr = "warn"
 dbg_macro = "warn"
 empty_drop = "warn"
+uninlined_format_args = "allow"
 empty_structs_with_brackets = "warn"
-exit = "warn"
 get_unwrap = "warn"
 rc_buffer = "warn"
 rc_mutex = "warn"

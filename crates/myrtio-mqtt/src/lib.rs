@@ -1,6 +1,6 @@
 //! # Async MQTT Client for Embedded Systems
 //!
-//! `mqtt-async-embedded` is a `no_std` compatible, asynchronous MQTT client designed for embedded
+//! `myrtio-mqtt` is a `no_std` compatible, asynchronous MQTT client designed for embedded
 //! systems, built upon the [Embassy](https://embassy.dev/) async ecosystem.
 //!
 //! ## Core Features
@@ -16,47 +16,65 @@
 //!   reliable, ordered, stream-based communication channel, including TCP, UART, or SPI.
 //! - **QoS 0 & 1:** Implements "at most once" and "at least once" delivery guarantees.
 //!
-//! ## Usage
+//! ## Architecture
 //!
-//! To use the client, you need to provide a transport implementation, configure the client options,
-//! and then run the `poll` method continuously to handle keep-alives and incoming messages.
+//! The crate provides two ways to use MQTT:
 //!
-//! ```no_run
-//! # use mqtt_async_embedded::client::{MqttClient, MqttOptions};
-//! # use mqtt_async_embedded::packet::QoS;
-//! # use mqtt_async_embedded::transport::MqttTransport;
-//! # use core::future::Future;
-//! #
-//! # struct MyTransport;
-//! # impl MqttTransport for MyTransport {
-//! #     type Error = ();
-//! #     async fn send(&mut self, buf: &[u8]) -> Result<(), Self::Error> { Ok(()) }
-//! #     async fn recv(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> { Ok(0) }
-//! # }
-//! #
-//! # async fn run() -> Result<(), mqtt_async_embedded::error::MqttError<()>> {
-//! let transport = MyTransport;
-//! let options = MqttOptions::new("my-device-id", "mqtt.broker.com", 1883);
+//! ### 1. Direct Client Usage
+//!
+//! Use `MqttClient` directly for simple applications:
+//!
+//! ```ignore
 //! let mut client = MqttClient::<_, 5, 256>::new(transport, options);
-//!
 //! client.connect().await?;
-//! client.publish("sensors/temperature", b"25.3", QoS::AtLeastOnce).await?;
+//! client.subscribe("topic", QoS::AtMostOnce).await?;
+//! client.publish("topic", b"payload", QoS::AtMostOnce).await?;
+//! ```
 //!
-//! loop {
-//!     // Poll the client to process incoming messages and send keep-alives.
-//!     if let Some(event) = client.poll().await? {
-//!         // Handle incoming publish packets, ACKs, etc.
-//!         println!("Received event: {:?}", event);
+//! ### 2. Runtime with Modules
+//!
+//! Use `MqttRuntime` with `MqttModule` trait for complex applications with
+//! multiple concerns (Home Assistant, telemetry, OTA, etc.):
+//!
+//! ```ignore
+//! use myrtio_mqtt::runtime::{MqttModule, MqttRuntime, TopicRegistry, Context};
+//!
+//! struct MyModule;
+//!
+//! impl<'a, T, const MAX_TOPICS: usize, const BUF_SIZE: usize>
+//!     MqttModule<'a, T, MAX_TOPICS, BUF_SIZE> for MyModule
+//! where
+//!     T: MqttTransport,
+//! {
+//!     fn register<'reg>(&'reg self, registry: &mut TopicRegistry<'reg, MAX_TOPICS>) {
+//!         let _ = registry.add("device/cmd");
+//!     }
+//!
+//!     fn on_message<'m>(&mut self, msg: &Publish<'m>) {
+//!         // Handle incoming messages
 //!     }
 //! }
-//! # Ok(())
-//! # }
 //! ```
+//!
+//! ## Topic Registration Lifetime Model
+//!
+//! The `MqttModule::register` method uses a generic lifetime `'reg` tied to the
+//! borrow of `self`. This allows modules to register:
+//!
+//! - **Static topics**: `const CMD_TOPIC: &str = "device/cmd";` (recommended)
+//! - **Dynamic topics**: Topics stored in `heapless::String` fields
+//!
+//! The registry is only used during initial subscription and is dropped before
+//! the main event loop, so topics only need to live as long as the module.
+//!
+//! See `examples/const_topics_module.rs` and `examples/dynamic_topics_module.rs`
+//! for complete examples.
 
 #![no_std]
 pub mod client;
 pub mod error;
 pub mod packet;
+pub mod runtime;
 pub mod transport;
 pub mod util;
 
@@ -64,4 +82,3 @@ pub mod util;
 pub use client::{MqttClient, MqttEvent, MqttOptions};
 pub use packet::QoS;
 pub use transport::TcpTransport;
-

@@ -3,48 +3,43 @@
 #![feature(type_alias_impl_trait)]
 
 #[macro_use]
-pub mod config;
-mod controller;
-mod hardware;
-mod state;
+mod app;
+mod controllers;
+mod domain;
+mod infrastructure;
 
 use embassy_executor::Spawner;
-use embassy_net::{Runner, StackResources};
-use embassy_sync::channel::Channel;
-use embassy_time::{Duration, Timer};
+use embassy_time::Duration;
+
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::interrupt::software::SoftwareInterruptControl;
-use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
-use esp_println::println;
-use esp_radio::{
-    Controller,
-    wifi::{ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState},
+use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
+
+use crate::app::LightUsecases;
+use crate::controllers::init_controllers;
+use crate::domain::ports::OnBootHandler;
+use crate::infrastructure::drivers::init_network_stack;
+use crate::infrastructure::repositories::init_flash_storage;
+use crate::infrastructure::services::{
+    LightStatePersistenceService, LightStateService, get_persistence_receiver,
 };
-use esp_rtos::embassy::Executor;
-use myrtio_light_composer::ColorCorrection;
-use myrtio_light_composer::{CommandChannel, EffectSlot, LightEngine, effect::RainbowEffect};
-use static_cell::StaticCell;
-
-use controller::homeassistant_mqtt::mqtt_controller_task;
-use hardware::EspLedDriver;
-
-use crate::state::LIGHT_STATE;
+use crate::infrastructure::tasks::light_composer::{init_light_composer, light_composer_task};
+use crate::infrastructure::tasks::{
+    mqtt_runtime_task, network_runner_task, storage_persistence_task, wifi_connection_task,
+};
+use crate::infrastructure::types::LightStorageMutex;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-// When you are okay with using a nightly compiler it's better to use https://docs.rs/static_cell/2.1.0/static_cell/macro.make_static.html
+// static_cell::make_static! in main causes a compiler error
 macro_rules! mk_static {
-    ($t:ty,$val:expr) => {{
+    ($t:ty, $val:expr) => {{
         static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
         #[deny(unused_attributes)]
         let x = STATIC_CELL.uninit().write(($val));
         x
     }};
 }
-
-/// Static command channel for light engine
-static LIGHT_CHANNEL: CommandChannel<{ config::LIGHT_LED_COUNT }> = Channel::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
@@ -54,123 +49,48 @@ async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    // Allocate heap memory
+    // Allocate heap memory (64 + 32 KB)
     esp_alloc::heap_allocator!(
         #[unsafe(link_section = ".dram2_uninit")] size: 64 * 1024
     );
     esp_alloc::heap_allocator!(size: 32 * 1024);
 
-    // Start rtos timer
+    // Start rtos
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
-    // Initialize light engine with command channel
-    let driver =
-        EspLedDriver::<{ config::LIGHT_LED_COUNT }>::new(peripherals.RMT, led_gpio!(peripherals));
+    let receiver = get_persistence_receiver();
+    let storage = mk_static!(LightStorageMutex, init_flash_storage(peripherals.FLASH));
+    let persistence_service = LightStatePersistenceService::new(storage);
 
-    // Start light task on second core
-    static APP_CORE_STACK: static_cell::StaticCell<esp_hal::system::Stack<8192>> =
-        static_cell::StaticCell::new();
-    let app_core_stack = APP_CORE_STACK.init(esp_hal::system::Stack::new());
-    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
-
-    esp_rtos::start_second_core(
-        peripherals.CPU_CTRL,
-        #[cfg(target_arch = "xtensa")]
-        sw_int.software_interrupt0,
-        sw_int.software_interrupt1,
-        app_core_stack,
-        move || {
-            static EXECUTOR: static_cell::StaticCell<esp_rtos::embassy::Executor> =
-                StaticCell::new();
-            let executor = EXECUTOR.init(Executor::new());
-            executor.run(|spawner| {
-                spawner.spawn(light_task(driver)).ok();
-            });
-        },
-    );
-
-    // Initialize network stack
-    let esp_radio_ctrl = &*mk_static!(Controller<'static>, esp_radio::init().unwrap());
-    let (controller, interfaces) =
-        esp_radio::wifi::new(&esp_radio_ctrl, peripherals.WIFI, Default::default()).unwrap();
-
-    let wifi_interface = interfaces.sta;
-
-    let net_config = embassy_net::Config::dhcpv4(Default::default());
-
-    let rng = Rng::new();
-    let seed = (rng.random() as u64) << 32 | rng.random() as u64;
-
-    // Init network stack
-    let (stack, runner) = embassy_net::new(
-        wifi_interface,
-        net_config,
-        mk_static!(StackResources<3>, StackResources::<3>::new()),
-        seed,
-    );
-
-    // Spawn background tasks
-    spawner.spawn(connection(controller)).ok();
-    spawner.spawn(net_task(runner)).ok();
-
-    let _ip_config = myrtio_netutils::wait_for_connection(stack).await;
-
-    // Spawn MQTT task
+    // Initialize light composer and spawn its task
+    let (driver, cmd_sender) = init_light_composer(peripherals.RMT, led_gpio!(peripherals));
+    spawner.spawn(light_composer_task(driver)).ok();
     spawner
-        .spawn(mqtt_controller_task(stack, LIGHT_CHANNEL.sender()))
+        .spawn(storage_persistence_task(storage, receiver))
         .ok();
+
+    // Initialize usecases and controllers
+    let state_service = LightStateService::new(cmd_sender);
+    let usecases = mk_static!(
+        LightUsecases<LightStateService, LightStatePersistenceService>,
+        LightUsecases::new(state_service, persistence_service)
+    );
+    let (mqtt_module, boot_controller) = init_controllers(usecases);
+    boot_controller.on_boot();
+
+    // Initialize network stack and spawn network tasks
+    let (stack, runner, controller) = init_network_stack(peripherals.WIFI);
+    spawner.spawn(wifi_connection_task(controller)).ok();
+    spawner.spawn(network_runner_task(runner)).ok();
+
+    // Wait for network connection before starting network-dependent tasks
+    myrtio_core::net::wait_for_connection(stack).await;
+
+    // Initialize MQTT module and spawn MQTT task
+    spawner.spawn(mqtt_runtime_task(stack, mqtt_module)).ok();
 
     loop {
         embassy_time::Timer::after(Duration::from_secs(5)).await;
     }
-}
-
-#[embassy_executor::task]
-async fn light_task(driver: EspLedDriver<'static, { config::LIGHT_LED_COUNT }>) {
-    let mut engine = LightEngine::new(driver, LIGHT_CHANNEL.receiver())
-        .with_shared_state(&LIGHT_STATE)
-        .with_color_correction(ColorCorrection::from_rgb(config::LIGHT_COLOR_CORRECTION));
-    engine.switch_effect_instant(EffectSlot::Rainbow(RainbowEffect::default()));
-    engine.set_brightness(50, Duration::from_millis(50));
-
-    loop {
-        engine.tick().await;
-    }
-}
-
-#[embassy_executor::task]
-async fn connection(mut controller: WifiController<'static>) {
-    loop {
-        match esp_radio::wifi::sta_state() {
-            WifiStaState::Connected => {
-                // wait until we're no longer connected
-                controller.wait_for_event(WifiEvent::StaDisconnected).await;
-                Timer::after(Duration::from_millis(5000)).await
-            }
-            _ => {}
-        }
-        if !matches!(controller.is_started(), Ok(true)) {
-            let client_config = ModeConfig::Client(
-                ClientConfig::default()
-                    .with_ssid(config::WIFI_SSID.into())
-                    .with_password(config::WIFI_PASSWORD.into()),
-            );
-            controller.set_config(&client_config).unwrap();
-            controller.start_async().await.unwrap();
-        }
-
-        match controller.connect_async().await {
-            Ok(_) => println!("Wifi connected"),
-            Err(e) => {
-                println!("Failed to connect to wifi: {e:?}");
-                Timer::after(Duration::from_millis(5000)).await
-            }
-        }
-    }
-}
-
-#[embassy_executor::task]
-async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
-    runner.run().await
 }

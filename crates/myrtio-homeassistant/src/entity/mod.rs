@@ -1,9 +1,12 @@
-//! Home Assistant Entity types
+//! Entity domain types
 //!
-//! This module contains entity definitions for Home Assistant MQTT integration.
+//! This module contains domain DTOs for Home Assistant entities.
 
 pub mod light;
 pub mod number;
 
-pub use light::{ColorMode, LightBuilder, LightCommand, LightEntity, LightRegistration, LightState, RgbColor};
-pub use number::{NumberBuilder, NumberEntity, NumberRegistration, NumberState};
+pub use light::{
+    ColorMode, LightCommand, LightEntity, LightEntityBuilder, LightRegistration, LightState,
+    RgbColor,
+};
+pub use number::{NumberEntity, NumberEntityBuilder, NumberRegistration};

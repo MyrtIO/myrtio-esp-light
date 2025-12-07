@@ -1,0 +1,86 @@
+use crate::domain::entity::LightState;
+
+/// Represents a user intent to change the light state.
+///
+/// This is a domain-neutral representation of what the user wants to do,
+/// independent of the source (MQTT, button, HTTP, etc.).
+#[derive(Clone, Debug)]
+pub(crate) struct LightChangeIntent {
+    /// Turn on (Some(true)), turn off (Some(false)), or no change (None)
+    pub power: Option<bool>,
+    /// Set brightness to this value (0-255)
+    pub brightness: Option<u8>,
+    /// Set color to this RGB value
+    pub color: Option<(u8, u8, u8)>,
+    /// Set effect by name
+    pub effect: Option<u8>,
+}
+
+impl LightChangeIntent {
+    /// Create a new empty intent (no changes)
+    pub(crate) const fn new() -> Self {
+        Self {
+            power: None,
+            brightness: None,
+            color: None,
+            effect: None,
+        }
+    }
+
+    /// Set power state
+    #[must_use]
+    pub(crate) const fn with_power(mut self, on: bool) -> Self {
+        self.power = Some(on);
+        self
+    }
+
+    /// Set brightness
+    #[must_use]
+    pub(crate) const fn with_brightness(mut self, brightness: u8) -> Self {
+        self.brightness = Some(brightness);
+        self
+    }
+
+    /// Set color
+    #[must_use]
+    pub(crate) const fn with_color(mut self, r: u8, g: u8, b: u8) -> Self {
+        self.color = Some((r, g, b));
+        self
+    }
+
+    /// Set effect
+    #[must_use]
+    pub(crate) const fn with_effect_id(mut self, effect_id: u8) -> Self {
+        self.effect = Some(effect_id);
+        self
+    }
+
+    /// Check if this intent requests turning off
+    pub(crate) fn is_off(&self) -> bool {
+        self.power == Some(false)
+    }
+
+    /// Check if this intent requests turning on
+    pub(crate) fn is_on(&self) -> bool {
+        self.power == Some(true)
+    }
+
+    /// Check if this intent implies the light should be on
+    /// (explicit on, or brightness/color/effect change)
+    pub(crate) fn implies_on(&self) -> bool {
+        self.is_on() || self.brightness.is_some() || self.color.is_some() || self.effect.is_some()
+    }
+}
+
+impl From<LightState> for LightChangeIntent {
+    fn from(state: LightState) -> Self {
+        let power = state.power && state.effect_id != 0;
+        let effect = if power { Some(state.effect_id) } else { None };
+        LightChangeIntent {
+            power: Some(power),
+            brightness: Some(state.brightness),
+            color: Some(state.color),
+            effect,
+        }
+    }
+}
