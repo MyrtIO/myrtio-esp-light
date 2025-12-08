@@ -15,9 +15,7 @@
 pub mod driver;
 pub mod effect;
 pub mod engine;
-pub mod models;
 pub mod processor;
-pub mod state;
 pub mod transition;
 pub mod math8;
 
@@ -25,7 +23,7 @@ pub mod math8;
 pub use driver::LedDriver;
 
 // Effect exports
-pub use effect::EffectSlot;
+pub use effect::{EffectId, EffectSlot};
 
 // Engine exports
 pub use engine::{
@@ -36,10 +34,5 @@ pub use engine::{
 // Processor exports
 pub use processor::{ColorCorrection, OutputProcessor};
 
-// State exports
-pub use state::{EffectId, SharedState};
-
 // Transition exports
 pub use transition::ColorTransition;
-
-pub use models::LightSnapshot;

@@ -9,7 +9,6 @@ mod static_color;
 pub use rainbow::{RainbowEffect, RainbowFlowEffect};
 pub use static_color::StaticColorEffect;
 
-use crate::state::EffectId;
 use embassy_time::Duration;
 use smart_leds::RGB;
 
@@ -67,6 +66,27 @@ pub enum EffectName {
     Rainbow,
     /// Rainbow flow effect (three-point mirrored)
     RainbowFlow,
+}
+
+/// Effect identifier for external observation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum EffectId {
+    Off = 0,
+    Rainbow = 1,
+    Static = 2,
+    RainbowFlow = 3,
+}
+
+impl From<u8> for EffectId {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => Self::Rainbow,
+            2 => Self::Static,
+            3 => Self::RainbowFlow,
+            _ => Self::Off,
+        }
+    }
 }
 
 pub const EFFECT_NAME_STATIC: &str = "static";

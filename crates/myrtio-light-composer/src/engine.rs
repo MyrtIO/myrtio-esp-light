@@ -1,37 +1,3 @@
-//! Light Engine - Main state machine orchestrator
-//!
-//! The [`LightEngine`] is the central coordinator that:
-//! - Manages the current effect
-//! - Handles effect transitions (fade-out-in)
-//! - Coordinates brightness envelope
-//! - Drives the render loop
-//! - Accepts commands via async channel
-//! - Optionally publishes state to [`SharedState`] for external observation
-//!
-//! ## Power On/Off Semantics
-//!
-//! The engine distinguishes between **target brightness** and **output brightness**:
-//!
-//! - **Target brightness** (`target_brightness`) is the desired brightness level
-//!   when the light is on. It is stored in `SharedState::brightness` and persists
-//!   across power-off/power-on cycles.
-//!
-//! - **Output brightness** is the actual brightness applied to the LEDs, which
-//!   may be 0 when the engine is stopped (powered off).
-//!
-//! When using `Command::PowerOff`:
-//! - The output fades to 0 over the specified duration.
-//! - `target_brightness` remains unchanged.
-//! - `SharedState::is_on` becomes `false` once fully stopped.
-//! - `SharedState::brightness` continues to report the target brightness.
-//!
-//! When using `Command::PowerOn`:
-//! - The output fades from 0 to `target_brightness`.
-//! - `SharedState::is_on` becomes `true` during/after fade-in.
-//!
-//! This allows external systems to know what brightness the light *will* have
-//! when turned on, even while it is currently off.
-
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Receiver, Sender},
