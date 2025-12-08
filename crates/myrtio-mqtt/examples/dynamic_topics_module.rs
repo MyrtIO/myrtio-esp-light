@@ -83,8 +83,8 @@ impl SensorModule {
     }
 }
 
-impl<'a, T, const MAX_TOPICS: usize, const BUF_SIZE: usize>
-    MqttModule<'a, T, MAX_TOPICS, BUF_SIZE> for SensorModule
+impl<'a, T, const MAX_TOPICS: usize, const BUF_SIZE: usize> MqttModule<'a, T, MAX_TOPICS, BUF_SIZE>
+    for SensorModule
 where
     T: MqttTransport,
 {
@@ -196,5 +196,3 @@ fn main() {
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
-
-

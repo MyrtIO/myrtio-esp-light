@@ -6,30 +6,24 @@ license = { workspace = true }
 edition = { workspace = true }
 rust-version = { workspace = true }
 
+[lib]
+name = "myrtio_light_composer"
+harness = false
+
 [lints]
 workspace = true
 
 [dependencies]
-esp-hal = { workspace = true, features = ["esp32", "unstable"] }
 embedded-io = { workspace = true }
 embedded-io-async = { workspace = true }
-esp-alloc = { workspace = true }
-critical-section = { workspace = true }
-embassy-executor = { workspace = true }
 embassy-sync = { workspace = true }
 embassy-time = { workspace = true }
-static_cell = { workspace = true }
-esp-rtos = { workspace = true, features = ["esp-radio", "embassy", "esp32"] }
-esp-println = { workspace = true, features = ["log-04", "esp32"] }
-esp-backtrace = { workspace = true, features = [
-    "esp32",
-    "println",
-    "panic-handler",
-] }
-esp-radio = { workspace = true, features = ["esp32", "wifi"] }
 smart-leds = "0.4.0"
+# embedded-test = { default-features = false, features = ["xtensa-semihosting", "panic-handler"]}
 myrtio-core = { workspace = true }
+esp-println = { workspace = true, optional = true, features = ["esp32"] }
+# semihosting = { version = "0.1.21", features = ["openocd-semihosting", "link-sections"]}
 
-esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2", features = [
-    "esp32",
-] }
+[features]
+default = []
+log = ["dep:esp-println"]

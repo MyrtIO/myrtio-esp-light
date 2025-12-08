@@ -6,34 +6,26 @@ use embassy_time::Duration;
 #[inline]
 #[allow(clippy::cast_lossless)]
 pub fn scale8(value: u8, scale: u8) -> u8 {
-    ((value as u16 * scale as u16) >> 8) as u8
+    ((value as u16 * (1 + scale as u16)) >> 8) as u8
 }
 
 /// Blend two 8-bit values
-///
-/// # Arguments
-/// * `a` - First value
-/// * `b` - Second value  
-/// * `amount_of_b` - Blend factor (0 = all a, 255 = all b)
 #[inline]
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
-    // Fast integer blend: a + (b - a) * amount / 256
-    let a = i16::from(a);
-    let b = i16::from(b);
-    let amount = i16::from(amount_of_b);
+    let delta = b as i16 - a as i16;
 
-    (a + (((b - a) * amount) >> 8)) as u8
+    let mut partial: u32 = (a as u32) << 16; // a * 65536
+    partial = partial
+        .wrapping_add((delta as u32)
+            .wrapping_mul(amount_of_b as u32)
+            .wrapping_mul(257)); // (b - a) * amount_of_b * 257
+    partial = partial.wrapping_add(0x8000); // + 32768 for rounding
+
+    (partial >> 16) as u8
 }
 
 /// Calculate progress (0-255) based on elapsed time and duration
 ///
-/// # Arguments
-/// * `elapsed` - Elapsed time
-/// * `duration` - Total duration
-///
-/// # Returns
-/// * `progress` - Progress (0-255)
 ///
 #[allow(clippy::cast_possible_truncation)]
 #[inline]

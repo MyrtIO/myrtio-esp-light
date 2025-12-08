@@ -14,10 +14,7 @@ pub struct SimpleEntity {
 
 #[test]
 fn simple_entity_builder_works() {
-    const ENTITY: SimpleEntity = SimpleEntity::builder()
-        .name("test")
-        .count(42)
-        .build();
+    const ENTITY: SimpleEntity = SimpleEntity::builder().name("test").count(42).build();
 
     assert_eq!(ENTITY.name, "test");
     assert_eq!(ENTITY.count, 42);
@@ -25,10 +22,7 @@ fn simple_entity_builder_works() {
 
 #[test]
 fn simple_entity_builder_chaining() {
-    let entity = SimpleEntity::builder()
-        .count(10)
-        .name("chained")
-        .build();
+    let entity = SimpleEntity::builder().count(10).name("chained").build();
 
     assert_eq!(entity.name, "chained");
     assert_eq!(entity.count, 10);
@@ -47,9 +41,7 @@ pub struct EntityWithOptions {
 
 #[test]
 fn optional_fields_default_to_none() {
-    const ENTITY: EntityWithOptions = EntityWithOptions::builder()
-        .required_field(100)
-        .build();
+    const ENTITY: EntityWithOptions = EntityWithOptions::builder().required_field(100).build();
 
     assert_eq!(ENTITY.required_field, 100);
     assert_eq!(ENTITY.optional_field, None);
@@ -216,5 +208,3 @@ fn builder_type_is_public() {
     let _builder2: EntityWithOptionsBuilder = EntityWithOptions::builder();
     let _builder3: EntityWithLifetimeBuilder<'static> = EntityWithLifetime::builder();
 }
-
-

@@ -1,4 +1,5 @@
 #![no_std]
+#![no_main]
 
 //! Light Engine v2 - State Machine Architecture
 //!

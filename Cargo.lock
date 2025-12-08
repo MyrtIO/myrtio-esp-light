@@ -1242,22 +1242,13 @@ dependencies = [
 name = "myrtio-light-composer"
 version = "0.0.0"
 dependencies = [
- "critical-section",
- "embassy-executor",
  "embassy-sync 0.7.2",
  "embassy-time",
  "embedded-io 0.6.1",
  "embedded-io-async 0.6.1",
- "esp-alloc",
- "esp-backtrace",
- "esp-hal",
- "esp-hal-smartled",
  "esp-println",
- "esp-radio",
- "esp-rtos",
  "myrtio-core",
  "smart-leds",
- "static_cell",
 ]
 
 [[package]]
@@ -1560,9 +1551,9 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "semihosting"
-version = "0.1.20"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e1c7d2b77d80283c750a39c52f1ab4d17234e8f30bca43550f5b2375f41d5f"
+checksum = "5669d73a3503b5d34db3359c8c87d1b33ba68b2630c153e340d106c15a8626a7"
 
 [[package]]
 name = "serde"
@@ -1864,6 +1855,14 @@ name = "unicode-width"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
+
+[[package]]
+name = "unit-tests"
+version = "0.0.0"
+dependencies = [
+ "embassy-time",
+ "myrtio-light-composer",
+]
 
 [[package]]
 name = "unsafe-libyaml"

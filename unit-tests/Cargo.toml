@@ -1,0 +1,17 @@
+[package]
+name    = "unit-tests"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "tests"
+
+[dependencies]
+myrtio-light-composer = { workspace = true }
+embassy-time = { workspace = true }
+# embedded-test = { version = "0.7.0", default-features = false, features = []}
+# embedded-test = { workspace = true }
+
+# [build-dependencies]
+# esp-metadata-generated = { version = "0.3.0", features = ["build-script", "esp32"]}

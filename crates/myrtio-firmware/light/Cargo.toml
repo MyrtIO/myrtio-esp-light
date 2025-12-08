@@ -47,6 +47,7 @@ embassy-futures = { workspace = true }
 embedded-io = { workspace = true }
 embedded-io-async = { workspace = true }
 embedded-storage = { workspace = true }
+# embedded-test = { version = "0.7.0", default-features = false, features = ["std"]}
 
 critical-section = { workspace = true }
 static_cell = { workspace = true }

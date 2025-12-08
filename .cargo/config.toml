@@ -1,5 +1,9 @@
 [target.xtensa-esp32-none-elf]
 runner = "espflash flash --monitor --chip esp32 --partition-table=crates/myrtio-firmware/light/partitions.csv"
+# runner = "probe-rs run --chip "
+
+# [target.aarch64-apple-darwin]
+# runner = "embedded-test-std-runner"
 
 [env]
 
@@ -10,5 +14,5 @@ rustflags = [
 
 target = "xtensa-esp32-none-elf"
 
-[unstable]
-build-std = ["alloc", "core"]
+# [unstable]
+# build-std = ["alloc", "core"]

@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-serde-json-core = { workspace = true }
+serde-json-core = "0.6.0"
 heapless = { workspace = true, features = ["serde"] }
 myrtio-mqtt = { workspace = true }
 myrtio-macros = { workspace = true }
