@@ -88,8 +88,9 @@ where
         effect: entity.effects.map(|_| true),
         effect_list: entity.effects,
         supported_color_modes: ctx.color_modes.as_slice(),
-        min_mireds: entity.min_mireds,
-        max_mireds: entity.max_mireds,
+        min_kelvin: entity.min_kelvin,
+        max_kelvin: entity.max_kelvin,
+        color_temp_kelvin: Some(true),
         optimistic: entity.optimistic,
     }
 }

@@ -46,5 +46,3 @@ pub fn unique_id<const N: usize>(device_id: &str, entity_id: &str) -> String<N> 
     let _ = write!(id, "{}_{}", device_id, entity_id);
     id
 }
-
-

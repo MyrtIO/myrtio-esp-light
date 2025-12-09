@@ -47,8 +47,7 @@ pub fn write_variable_byte_integer(
             encoded_byte |= 128;
         }
         // CORRECTED: Dereference the `&mut u8` to assign the value directly.
-        *buf.get_mut(*cursor)
-            .ok_or(MqttError::BufferTooSmall)? = encoded_byte;
+        *buf.get_mut(*cursor).ok_or(MqttError::BufferTooSmall)? = encoded_byte;
         *cursor += 1;
         if val == 0 {
             break;
@@ -95,7 +94,7 @@ pub fn read_utf8_string<'a>(
         buf.get(*cursor..*cursor + len)
             .ok_or(MqttError::Protocol(ProtocolError::MalformedPacket))?,
     )
-        .map_err(|_| MqttError::Protocol(ProtocolError::InvalidUtf8String))?;
+    .map_err(|_| MqttError::Protocol(ProtocolError::InvalidUtf8String))?;
     *cursor += len;
     Ok(s)
 }
@@ -175,4 +174,3 @@ pub fn write_properties(
 
     Ok(())
 }
-

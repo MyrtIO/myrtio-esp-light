@@ -18,10 +18,9 @@ pub(crate) static LIGHT_ENTITY: LightEntity<'static> = LightEntity::builder()
     .device(&DEVICE)
     .icon(Some("mdi:led-strip"))
     .brightness(true)
-    .color_modes(&[ColorMode::Rgb])
-    .effects(Some(&[
-        ModeId::Static.as_str(),
-        ModeId::Rainbow.as_str(),
-    ]))
+    .min_kelvin(Some(config::LIGHT.temperature_min_kelvin))
+    .max_kelvin(Some(config::LIGHT.temperature_max_kelvin))
+    .color_modes(&[ColorMode::Rgb, ColorMode::ColorTemp])
+    .effects(Some(&[ModeId::Static.as_str(), ModeId::Rainbow.as_str()]))
     .optimistic(false)
     .build();

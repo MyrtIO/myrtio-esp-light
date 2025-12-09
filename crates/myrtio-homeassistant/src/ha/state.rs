@@ -96,5 +96,3 @@ impl<'a> HaLightState<'a> {
         self
     }
 }
-
-

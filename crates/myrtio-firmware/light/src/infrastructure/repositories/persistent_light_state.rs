@@ -4,7 +4,7 @@ use embassy_sync::blocking_mutex::Mutex;
 use esp_hal::peripherals::FLASH;
 use myrtio_core::storage::{Encodable, MAGIC_HEADER_SIZE, PersistentStorage, StorageDriver};
 
-use crate::domain::entity::LightState;
+use crate::domain::entity::{ColorMode, LightState};
 use crate::domain::ports::{LightStateReader, PersistentLightStateWriter};
 use crate::infrastructure::drivers::EspNorFlashStorageDriver;
 use crate::infrastructure::types::LightStorageMutex;
@@ -18,17 +18,22 @@ pub(crate) type LightStorage<DRIVER> = PersistentStorage<DRIVER, { STORAGE_SIZE 
 /// Concrete storage driver used by the firmware.
 pub(crate) type LightNorFlashStorage = LightStorage<LightStorageDriver>;
 
-const LIGHT_STATE_SIZE: usize = 6;
+const LIGHT_STATE_SIZE: usize = 10;
 
 impl Encodable<LIGHT_STATE_SIZE> for LightState {
     fn encode(self) -> [u8; LIGHT_STATE_SIZE] {
+        let color_temp_bytes = self.color_temp.to_le_bytes();
         [
             u8::from(self.power),
             self.brightness,
             self.mode_id,
+            color_temp_bytes[0],
+            color_temp_bytes[1],
+            self.color_mode.as_u8(),
             self.color.0,
             self.color.1,
             self.color.2,
+            0, // padding
         ]
     }
 
@@ -40,7 +45,9 @@ impl Encodable<LIGHT_STATE_SIZE> for LightState {
             power: data[0] != 0,
             brightness: data[1],
             mode_id: data[2],
-            color: (data[3], data[4], data[5]),
+            color_temp: u16::from_le_bytes([data[3], data[4]]),
+            color_mode: ColorMode::from_u8(data[5]).unwrap(),
+            color: (data[6], data[7], data[8]),
         })
     }
 }
@@ -70,9 +77,7 @@ where
 }
 
 /// Initialize the flash storage
-pub(crate) fn init_flash_storage(
-    flash: FLASH<'static>,
-) -> LightStorageMutex {
+pub(crate) fn init_flash_storage(flash: FLASH<'static>) -> LightStorageMutex {
     let driver = LightStorageDriver::new(flash);
     let storage = LightNorFlashStorage::new(driver);
 

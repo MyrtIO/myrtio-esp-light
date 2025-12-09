@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
-use esp_storage::FlashStorage;
 use esp_hal::peripherals::FLASH;
+use esp_storage::FlashStorage;
 use myrtio_core::storage::{StorageDriver, StorageError};
 
 pub(crate) const BLOCK_SIZE: u32 = 4096;
@@ -41,12 +41,17 @@ impl<const SIZE: usize> StorageDriver<SIZE> for EspNorFlashStorageDriver<SIZE> {
     fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
         self.storage.lock(|cell| {
             let mut cell_ref = cell.borrow_mut();
-            cell_ref
-                .erase(self.addr, self.addr + BLOCK_SIZE)
-                .map_err(|_| StorageError::DriverError)?;
-            cell_ref
-                .write(self.addr, buffer)
-                .map_err(|_| StorageError::DriverError)
+            let erase_result = cell_ref.erase(self.addr, self.addr + BLOCK_SIZE);
+            if erase_result.is_err() {
+                esp_println::println!("Failed to erase flash storage: {:?}", erase_result);
+                return Err(StorageError::DriverError);
+            }
+            let write_result = cell_ref.write(self.addr, buffer);
+            if write_result.is_err() {
+                esp_println::println!("Failed to write to flash storage: {:?}", write_result);
+                return Err(StorageError::DriverError);
+            }
+            Ok(())
         })
     }
 }

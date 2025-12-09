@@ -224,11 +224,7 @@ where
         let d1 = self.first.on_tick(outbox);
         let d2 = self.second.on_tick(outbox);
         // Return the smaller interval so both modules get ticked appropriately
-        if d1 < d2 {
-            d1
-        } else {
-            d2
-        }
+        if d1 < d2 { d1 } else { d2 }
     }
 
     fn on_start(&mut self, outbox: &mut dyn PublishOutbox) {

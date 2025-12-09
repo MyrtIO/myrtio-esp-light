@@ -1,9 +1,9 @@
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU8, AtomicU16, Ordering};
 
 use myrtio_light_composer::{Command, CommandSender, ModeId, Rgb};
 
 use crate::domain::dto::LightChangeIntent;
-use crate::domain::entity::LightState;
+use crate::domain::entity::{ColorMode, LightState};
 use crate::domain::ports::{LightIntentApplier, LightStateHandler, LightStateReader};
 
 /// Atomic light state
@@ -13,6 +13,8 @@ struct AtomicLightState {
     power: AtomicU8,
     brightness: AtomicU8,
     effect_id: AtomicU8,
+    color_temp: AtomicU16,
+    color_mode: AtomicU8,
     r: AtomicU8,
     g: AtomicU8,
     b: AtomicU8,
@@ -24,6 +26,8 @@ impl AtomicLightState {
             power: AtomicU8::new(if state.power { 1 } else { 0 }),
             brightness: AtomicU8::new(state.brightness),
             effect_id: AtomicU8::new(state.mode_id),
+            color_temp: AtomicU16::new(state.color_temp),
+            color_mode: AtomicU8::new(state.color_mode.as_u8()),
             r: AtomicU8::new(state.color.0),
             g: AtomicU8::new(state.color.1),
             b: AtomicU8::new(state.color.2),
@@ -35,11 +39,16 @@ impl AtomicLightState {
         let g = self.g.load(Ordering::Relaxed);
         let b = self.b.load(Ordering::Relaxed);
 
+        let color_mode_raw = self.color_mode.load(Ordering::Relaxed);
+        let color_mode = ColorMode::from_u8(color_mode_raw).unwrap();
+
         LightState {
-            brightness: self.brightness.load(Ordering::Relaxed),
             power: self.power.load(Ordering::Relaxed) != 0,
-            mode_id: self.effect_id.load(Ordering::Relaxed),
+            brightness: self.brightness.load(Ordering::Relaxed),
             color: (r, g, b),
+            color_temp: self.color_temp.load(Ordering::Relaxed),
+            mode_id: self.effect_id.load(Ordering::Relaxed),
+            color_mode,
         }
     }
 
@@ -93,7 +102,12 @@ impl LightIntentApplier for LightStateService {
 
         if let Some((r, g, b)) = intent.color {
             state.color = (r, g, b);
+            state.color_mode = ColorMode::Rgb;
             self.send_command(Command::SetColor(Rgb { r, g, b }))?;
+        } else if let Some(color_temp) = intent.color_temp {
+            state.color_temp = color_temp;
+            state.color_mode = ColorMode::Temperature;
+            self.send_command(Command::SetColorTemperature(color_temp))?;
         }
 
         if intent.is_off() {

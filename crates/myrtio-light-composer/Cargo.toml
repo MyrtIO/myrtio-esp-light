@@ -19,6 +19,7 @@ embassy-time = { workspace = true }
 smart-leds = { workspace = true }
 heapless = { workspace = true }
 esp-println = { workspace = true, optional = true, features = ["esp32"] }
+libm = "0.2.15"
 
 [features]
 default = []

@@ -88,7 +88,7 @@ where
     {
         #[cfg(feature = "esp-println")]
         esp_println::println!("MQTT: Starting connect...");
-        
+
         self.state = ConnectionState::Connecting;
         let connect_packet = Connect::new(
             self.options.client_id,
@@ -98,34 +98,37 @@ where
         let len = connect_packet
             .encode(&mut self.tx_buffer, self.options.version)
             .map_err(MqttError::cast_transport_error)?;
-        
+
         #[cfg(feature = "esp-println")]
         esp_println::println!("MQTT TX ({} bytes): {:02X?}", len, &self.tx_buffer[..len]);
-        
+
         self.transport.send(&self.tx_buffer[..len]).await?;
-        
+
         #[cfg(feature = "esp-println")]
         esp_println::println!("MQTT: Waiting for CONNACK...");
-        
+
         let n = self.transport.recv(&mut self.rx_buffer).await?;
-        
+
         #[cfg(feature = "esp-println")]
         esp_println::println!("MQTT RX ({} bytes): {:02X?}", n, &self.rx_buffer[..n]);
-        
+
         let packet = packet::decode::<T::Error>(&self.rx_buffer[..n], self.options.version);
-        
+
         #[cfg(feature = "esp-println")]
         if let Err(ref e) = packet {
             esp_println::println!("MQTT decode error: {:?}", e);
         }
-        
+
         let packet = packet?.ok_or(MqttError::Protocol(ProtocolError::InvalidResponse))?;
-        
+
         if let MqttPacket::ConnAck(connack) = packet {
             #[cfg(feature = "esp-println")]
-            esp_println::println!("MQTT CONNACK: reason_code={}, session_present={}", 
-                connack.reason_code, connack.session_present);
-            
+            esp_println::println!(
+                "MQTT CONNACK: reason_code={}, session_present={}",
+                connack.reason_code,
+                connack.session_present
+            );
+
             if connack.reason_code == 0 {
                 self.state = ConnectionState::Connected;
                 self.last_tx_time = Instant::now();
@@ -137,7 +140,7 @@ where
         } else {
             #[cfg(feature = "esp-println")]
             esp_println::println!("MQTT: Expected CONNACK, got different packet!");
-            
+
             self.state = ConnectionState::Disconnected;
             Err(MqttError::Protocol(ProtocolError::InvalidResponse))
         }
@@ -277,11 +280,11 @@ where
         let decision = {
             let recv_fut = self.transport.recv(&mut self.rx_buffer);
             let timer_fut = Timer::after(remaining);
-            match futures::future::select(core::pin::pin!(recv_fut), core::pin::pin!(timer_fut)).await {
+            match futures::future::select(core::pin::pin!(recv_fut), core::pin::pin!(timer_fut))
+                .await
+            {
                 futures::future::Either::Left((result, _)) => result.map(PollDecision::Received),
-                futures::future::Either::Right(((), _pending_recv)) => {
-                    Ok(PollDecision::KeepAlive)
-                }
+                futures::future::Either::Right(((), _pending_recv)) => Ok(PollDecision::KeepAlive),
             }
         }?;
 

@@ -115,7 +115,9 @@ impl<const CAPACITY: usize, const TOPIC_SIZE: usize, const PAYLOAD_SIZE: usize>
     }
 
     /// Drain all buffered requests, returning an iterator.
-    pub fn drain(&mut self) -> impl Iterator<Item = OwnedPublishRequest<TOPIC_SIZE, PAYLOAD_SIZE>> + '_ {
+    pub fn drain(
+        &mut self,
+    ) -> impl Iterator<Item = OwnedPublishRequest<TOPIC_SIZE, PAYLOAD_SIZE>> + '_ {
         self.requests.iter().cloned()
     }
 
@@ -167,4 +169,3 @@ impl<const CAPACITY: usize, const TOPIC_SIZE: usize, const PAYLOAD_SIZE: usize> 
         let _ = self.requests.push(req); // Silently drop if full
     }
 }
-

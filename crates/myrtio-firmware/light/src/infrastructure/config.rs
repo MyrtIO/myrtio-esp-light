@@ -64,7 +64,7 @@ pub(crate) const LIGHT: LightConfig = LightConfig {
     brightness_min: 10,
     brightness_max: 100,
     temperature_max_kelvin: 6500,
-    temperature_min_kelvin: 2700,
+    temperature_min_kelvin: 1500,
 };
 #[cfg(not(all(feature = "rs1")))]
 pub(crate) const LIGHT: LightConfig = LightConfig {
@@ -73,7 +73,7 @@ pub(crate) const LIGHT: LightConfig = LightConfig {
     brightness_min: 0,
     brightness_max: 100,
     temperature_max_kelvin: 6500,
-    temperature_min_kelvin: 2700,
+    temperature_min_kelvin: 1500,
 };
 
 pub(crate) const STORAGE: StorageConfig = StorageConfig {

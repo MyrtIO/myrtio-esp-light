@@ -52,9 +52,7 @@ impl<T: transport::TransportError> MqttError<T> {
     ///
     /// This is used to bridge the gap between generic packet encoding functions
     /// and the specific error type required by the client's `Result`.
-    pub fn cast_transport_error<E: transport::TransportError>(
-        other: MqttError<E>,
-    ) -> MqttError<T> {
+    pub fn cast_transport_error<E: transport::TransportError>(other: MqttError<E>) -> MqttError<T> {
         match other {
             MqttError::Protocol(p) => MqttError::Protocol(p),
             MqttError::ConnectionRefused(c) => MqttError::ConnectionRefused(c),
@@ -124,4 +122,3 @@ pub enum ProtocolError {
     #[cfg(feature = "v5")]
     TooManyProperties,
 }
-

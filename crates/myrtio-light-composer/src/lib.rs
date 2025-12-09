@@ -16,7 +16,7 @@ pub use engine::{LightEngine, LightEngineConfig, TransitionTimings};
 pub use mode::{ModeId, ModeSlot};
 pub use operation::{Operation, OperationStack};
 
-pub use color::{Rgb, Hsv};
+pub use color::{Hsv, Rgb};
 
 /// Abstract LED driver trait
 ///

@@ -26,7 +26,9 @@ pub struct PersistentStorage<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_
     driver: DRIVER,
 }
 
-impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize> PersistentStorage<DRIVER, STORAGE_SIZE> {
+impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize>
+    PersistentStorage<DRIVER, STORAGE_SIZE>
+{
     pub fn new(driver: DRIVER) -> Self {
         Self { driver }
     }
@@ -60,7 +62,7 @@ impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize> PersistentS
         data[0..MAGIC_HEADER_SIZE].copy_from_slice(&MAGIC_HEADER.to_le_bytes());
         let encoded = state.clone().encode();
         data[MAGIC_HEADER_SIZE..STORAGE_SIZE].copy_from_slice(&encoded);
-
+        
         self.driver
             .write(&data)
             .map_err(|_| StorageError::DriverError)

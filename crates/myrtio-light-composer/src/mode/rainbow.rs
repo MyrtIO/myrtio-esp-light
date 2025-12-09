@@ -8,7 +8,7 @@ use core::cmp::min;
 use embassy_time::{Duration, Instant};
 
 use super::Mode;
-use crate::color::{fill_gradient_three_fp, mirror_half, Hsv, Rgb};
+use crate::color::{Hsv, Rgb, fill_gradient_three_fp, mirror_half};
 
 const DEFAULT_CYCLE_MS: u64 = 12_000;
 const HUE_STEP: u8 = 60;

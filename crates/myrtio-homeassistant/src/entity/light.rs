@@ -61,10 +61,10 @@ pub struct LightEntity<'a> {
     pub color_modes: &'a [ColorMode],
     /// Available effects
     pub effects: Option<&'a [&'a str]>,
-    /// Minimum color temperature in mireds
-    pub min_mireds: Option<u16>,
-    /// Maximum color temperature in mireds
-    pub max_mireds: Option<u16>,
+    /// Minimum color temperature in Kelvin
+    pub min_kelvin: Option<u16>,
+    /// Maximum color temperature in Kelvin
+    pub max_kelvin: Option<u16>,
     /// Whether the entity works in optimistic mode
     pub optimistic: bool,
 }
@@ -80,8 +80,8 @@ impl<'a> LightEntity<'a> {
             brightness: true,
             color_modes: &[],
             effects: None,
-            min_mireds: None,
-            max_mireds: None,
+            min_kelvin: None,
+            max_kelvin: None,
             optimistic: false,
         }
     }
@@ -116,9 +116,9 @@ impl<'a> LightEntity<'a> {
 
     /// Set color temperature range
     #[must_use]
-    pub const fn with_mireds_range(mut self, min: u16, max: u16) -> Self {
-        self.min_mireds = Some(min);
-        self.max_mireds = Some(max);
+    pub const fn with_kelvin_range(mut self, min: u16, max: u16) -> Self {
+        self.min_kelvin = Some(min);
+        self.max_kelvin = Some(max);
         self
     }
 

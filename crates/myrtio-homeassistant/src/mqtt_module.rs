@@ -25,15 +25,15 @@ use core::fmt::Write;
 use embassy_time::Duration;
 use heapless::{String, Vec};
 use myrtio_mqtt::{
-    runtime::{MqttModule, Publish, PublishOutbox, TopicCollector},
     QoS,
+    runtime::{MqttModule, Publish, PublishOutbox, TopicCollector},
 };
 
 use crate::{
+    Error,
     entity::light::{LightCommand, LightEntity, LightRegistration, LightState},
     entity::number::{NumberEntity, NumberRegistration},
     ha::{self, HaLightCommand, LightDiscoveryContext, NumberDiscoveryContext},
-    Error,
 };
 
 /// Maximum length for a topic string

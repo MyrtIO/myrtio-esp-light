@@ -12,6 +12,8 @@ pub(crate) struct LightChangeIntent {
     pub brightness: Option<u8>,
     /// Set color to this RGB value
     pub color: Option<(u8, u8, u8)>,
+    /// Set color temperature to this value (1000-40000)
+    pub color_temp: Option<u16>,
     /// Set mode by ID
     pub mode_id: Option<u8>,
 }
@@ -23,6 +25,7 @@ impl LightChangeIntent {
             power: None,
             brightness: None,
             color: None,
+            color_temp: None,
             mode_id: None,
         }
     }
@@ -48,6 +51,13 @@ impl LightChangeIntent {
         self
     }
 
+    /// Set color temperature
+    #[must_use]
+    pub(crate) const fn with_color_temp(mut self, color_temp: u16) -> Self {
+        self.color_temp = Some(color_temp);
+        self
+    }
+
     /// Set effect
     #[must_use]
     pub(crate) const fn with_effect_id(mut self, effect_id: u8) -> Self {
@@ -68,7 +78,11 @@ impl LightChangeIntent {
     /// Check if this intent implies the light should be on
     /// (explicit on, or brightness/color/effect change)
     pub(crate) fn implies_on(&self) -> bool {
-        self.is_on() || self.brightness.is_some() || self.color.is_some() || self.mode_id.is_some()
+        self.is_on()
+            || self.brightness.is_some()
+            || self.color.is_some()
+            || self.color_temp.is_some()
+            || self.mode_id.is_some()
     }
 }
 
@@ -78,6 +92,7 @@ impl From<LightState> for LightChangeIntent {
             power: Some(state.power),
             brightness: Some(state.brightness),
             color: Some(state.color),
+            color_temp: Some(state.color_temp),
             mode_id: Some(state.mode_id),
         }
     }

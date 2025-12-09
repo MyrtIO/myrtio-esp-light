@@ -53,12 +53,15 @@ pub struct HaLightDiscovery<'a> {
     /// Supported color modes
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     pub supported_color_modes: &'a [&'a str],
-    /// Minimum color temperature in mireds
+    /// Minimum color temperature in Kelvin
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_mireds: Option<u16>,
-    /// Maximum color temperature in mireds
+    pub min_kelvin: Option<u16>,
+    /// Maximum color temperature in Kelvin
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_mireds: Option<u16>,
+    pub max_kelvin: Option<u16>,
+    /// Whether the color temperature is in Kelvin
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color_temp_kelvin: Option<bool>,
     /// Optimistic mode flag
     #[serde(skip_serializing_if = "is_false")]
     pub optimistic: bool,

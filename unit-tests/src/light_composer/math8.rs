@@ -21,8 +21,17 @@ mod tests {
 
     #[test]
     fn test_progress8() {
-        assert_eq!(progress8(Duration::from_millis(0), Duration::from_millis(100)), 0);
-        assert_eq!(progress8(Duration::from_millis(50), Duration::from_millis(100)), 127);
-        assert_eq!(progress8(Duration::from_millis(100), Duration::from_millis(100)), 255);
+        assert_eq!(
+            progress8(Duration::from_millis(0), Duration::from_millis(100)),
+            0
+        );
+        assert_eq!(
+            progress8(Duration::from_millis(50), Duration::from_millis(100)),
+            127
+        );
+        assert_eq!(
+            progress8(Duration::from_millis(100), Duration::from_millis(100)),
+            255
+        );
     }
 }

@@ -8,7 +8,7 @@
 //! need for the `#[async_trait]` macro.
 
 use crate::error::MqttError;
-use embassy_net::tcp::{TcpSocket, Error as TcpError};
+use embassy_net::tcp::{Error as TcpError, TcpSocket};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 
@@ -70,12 +70,12 @@ impl<'a> TcpTransport<'a> {
             futures::future::Either::Left((Ok(n), _)) => {
                 #[cfg(feature = "esp-println")]
                 esp_println::println!("TCP read: {} bytes", n);
-                
+
                 if n == 0 {
                     // If the peer closes the connection, read returns 0.
                     #[cfg(feature = "esp-println")]
                     esp_println::println!("TCP connection closed by peer!");
-                    
+
                     Err(MqttError::Protocol(
                         super::error::ProtocolError::ConnectionClosed,
                     ))
@@ -86,13 +86,13 @@ impl<'a> TcpTransport<'a> {
             futures::future::Either::Left((Err(e), _)) => {
                 #[cfg(feature = "esp-println")]
                 esp_println::println!("TCP read error: {:?}", e);
-                
+
                 Err(MqttError::Transport(e))
             }
             futures::future::Either::Right(((), _)) => {
                 #[cfg(feature = "esp-println")]
                 esp_println::println!("TCP read timeout!");
-                
+
                 Err(MqttError::Timeout)
             }
         }
@@ -105,21 +105,15 @@ impl<'a> MqttTransport for TcpTransport<'a> {
     async fn send(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         #[cfg(feature = "esp-println")]
         esp_println::println!("TCP TX ({} bytes): {:02X?}", buf.len(), buf);
-        
-        self.socket
-            .write_all(buf)
-            .await
-            .map_err(|e| {
-                #[cfg(feature = "esp-println")]
-                esp_println::println!("TCP write error: {:?}", e);
-                MqttError::Transport(e)
-            })?;
-        
+
+        self.socket.write_all(buf).await.map_err(|e| {
+            #[cfg(feature = "esp-println")]
+            esp_println::println!("TCP write error: {:?}", e);
+            MqttError::Transport(e)
+        })?;
+
         // Flush to ensure data is actually sent to the network
-        self.socket
-            .flush()
-            .await
-            .map_err(MqttError::Transport)
+        self.socket.flush().await.map_err(MqttError::Transport)
     }
 
     async fn recv(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {

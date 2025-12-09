@@ -3,7 +3,7 @@ use embassy_time::{Duration, Instant, Timer};
 #[cfg(feature = "log")]
 use esp_println::println;
 
-use crate::color::Rgb;
+use crate::color::{Rgb, kelvin_to_rgb};
 use crate::command::CommandReceiver;
 use crate::effect::{EffectProcessor, EffectProcessorConfig};
 use crate::mode::{ModeId, ModeSlot};
@@ -118,6 +118,10 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
                 Command::SetBrightness(brightness) => self.stack.push_brightness(brightness),
                 Command::SwitchMode(mode) => self.stack.push_mode(mode, self.state.brightness),
                 Command::SetColor(color) => self.stack.push_color(color),
+                Command::SetColorTemperature(color_temp) => {
+                    let color = kelvin_to_rgb(color_temp);
+                    self.stack.push_color(color)
+                }
                 Command::PowerOff => self.stack.push_power_off(),
                 Command::PowerOn => self.stack.push_power_on(),
             };
@@ -138,25 +142,25 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
         };
         // Start the transition for the current operation
         match next {
-            Command::SetBrightness(brightness) => {
+            Operation::SetBrightness(brightness) => {
                 self.effects
                     .brightness
                     .set(brightness, self.timings.brightness, now);
             }
-            Command::SetColor(color) => {
+            Operation::SetColor(color) => {
                 self.state
                     .current_mode
                     .set_color(color, self.timings.color_change, now);
             }
-            Command::PowerOff => {
+            Operation::PowerOff => {
                 self.effects.brightness.set(0, self.timings.brightness, now);
             }
-            Command::PowerOn => {
+            Operation::PowerOn => {
                 self.effects
                     .brightness
                     .set(self.state.brightness, self.timings.brightness, now);
             }
-            Command::SwitchMode(_mode) => {
+            Operation::SwitchMode(_mode) => {
                 // This command changes instantly
             }
         }

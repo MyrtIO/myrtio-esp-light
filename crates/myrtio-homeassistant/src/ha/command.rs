@@ -44,5 +44,3 @@ impl HaLightCommand<'_> {
         self.state == Some("OFF")
     }
 }
-
-
