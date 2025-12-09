@@ -48,6 +48,10 @@ impl BrightnessEffect {
         self.brightness.set(corrected_brightness, duration, now);
     }
 
+    pub(crate) fn set_uncorrected(&mut self, brightness: u8, duration: Duration, now: Instant) {
+        self.brightness.set(brightness, duration, now);
+    }
+
     /// Check if a transition is in progress
     pub(crate) const fn is_transitioning(&self) -> bool {
         self.brightness.is_transitioning()

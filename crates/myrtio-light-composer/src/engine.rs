@@ -153,7 +153,7 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
                     .set_color(color, self.timings.color_change, now);
             }
             Operation::PowerOff => {
-                self.effects.brightness.set(0, self.timings.brightness, now);
+                self.effects.brightness.set_uncorrected(0, self.timings.brightness, now);
             }
             Operation::PowerOn => {
                 self.effects
