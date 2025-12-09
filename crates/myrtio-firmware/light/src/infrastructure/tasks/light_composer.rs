@@ -4,9 +4,10 @@ use esp_hal::gpio::interconnect::PeripheralOutput;
 use esp_hal::peripherals::RMT;
 
 use myrtio_light_composer::color::rgb_from_u32;
+use myrtio_light_composer::effect::BrightnessEffectConfig;
 use myrtio_light_composer::{
     CommandChannel, CommandSender, EffectProcessorConfig, LightEngine, LightEngineConfig, ModeId,
-    Rgb, TransitionTimings,
+    Rgb, TransitionTimings, ws2812_lut,
 };
 
 use crate::infrastructure::config;
@@ -21,15 +22,18 @@ const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
     brightness: 0,
     color: LIGHT_COLOR_CORRECTION,
     effects: EffectProcessorConfig {
-        brightness_min: Some(config::LIGHT.brightness_min),
-        brightness_scale: Some(config::LIGHT.brightness_max),
+        brightness: BrightnessEffectConfig {
+            min_brightness: config::LIGHT.brightness_min,
+            scale: config::LIGHT.brightness_max,
+            adjust: Some(ws2812_lut),
+        },
         color_correction: Some(LIGHT_COLOR_CORRECTION),
     },
     timings: TransitionTimings {
-        fade_out: Duration::from_millis(400),
-        fade_in: Duration::from_millis(300),
+        fade_out: Duration::from_millis(800),
+        fade_in: Duration::from_millis(500),
         color_change: Duration::from_millis(200),
-        brightness: Duration::from_millis(200),
+        brightness: Duration::from_millis(300),
     },
 };
 

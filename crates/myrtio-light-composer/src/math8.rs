@@ -41,3 +41,19 @@ pub const fn progress8(elapsed: Duration, duration: Duration) -> u8 {
 
     ((elapsed.as_millis() * 255) / duration.as_millis()) as u8
 }
+
+/// Type alias for a function that adjusts a u8 value
+pub type U8Adjuster = fn(value: u8) -> u8;
+
+/// Combine multiple u8 adjusters
+pub fn combine<const N: usize>(adjusters: [U8Adjuster; N], value: u8) -> u8 {
+    adjusters.iter().fold(value, |acc, adjust| adjust(acc))
+}
+
+/// Ease in out quadratic
+pub fn ease_in_out_quad(i: u8) -> u8 {
+    let j = if i & 0x80 != 0 { 255 - i } else { i };
+    let jj = scale8(j, j);
+    let jj2 = jj << 1;
+    if i & 0x80 == 0 { jj2 } else { 255 - jj2 }
+}
