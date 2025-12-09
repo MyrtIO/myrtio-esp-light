@@ -25,7 +25,7 @@ impl Encodable<LIGHT_STATE_SIZE> for LightState {
         [
             u8::from(self.power),
             self.brightness,
-            self.effect_id,
+            self.mode_id,
             self.color.0,
             self.color.1,
             self.color.2,
@@ -39,7 +39,7 @@ impl Encodable<LIGHT_STATE_SIZE> for LightState {
         Some(LightState {
             power: data[0] != 0,
             brightness: data[1],
-            effect_id: data[2],
+            mode_id: data[2],
             color: (data[3], data[4], data[5]),
         })
     }

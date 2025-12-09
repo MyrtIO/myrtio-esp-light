@@ -6,8 +6,7 @@
 use embassy_time::Duration;
 use esp_println::println;
 use myrtio_homeassistant::{HaModule, LightCommand, LightRegistration, LightState};
-use myrtio_light_composer::EffectId;
-use myrtio_light_composer::effect::EffectName;
+use myrtio_light_composer::ModeId;
 use myrtio_mqtt::runtime::MqttModule;
 use static_cell::StaticCell;
 
@@ -33,13 +32,12 @@ fn get_light_state() -> LightState {
         usecases.get_light_state().unwrap()
     });
 
-    if state.power && state.effect_id != 0 {
-        let effect_id = EffectId::from(state.effect_id);
-        let effect_name = EffectName::from_id(effect_id).unwrap();
+    if state.power {
+        let mode_id = ModeId::from_raw(state.mode_id).expect("Invalid mode ID");
         return LightState::on()
             .with_brightness(state.brightness)
             .with_rgb(state.color.0, state.color.1, state.color.2)
-            .with_effect(effect_name.as_str());
+            .with_effect(mode_id.as_str());
     }
 
     LightState::off()
@@ -64,9 +62,8 @@ fn handle_light_command(cmd: &LightCommand) {
     }
 
     if let Some(effect_str) = cmd.effect {
-        if let Some(effect_name) = EffectName::parse_from_str(effect_str) {
-            let effect_id = effect_name.to_id().unwrap();
-            intent = intent.with_effect_id(effect_id as u8);
+        if let Some(id) = ModeId::parse_from_str(effect_str) {
+            intent = intent.with_effect_id(id as u8);
         }
     }
 

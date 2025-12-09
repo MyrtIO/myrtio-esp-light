@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod tests {
     use embassy_time::Duration;
     use myrtio_light_composer::math8::{blend8, progress8, scale8};

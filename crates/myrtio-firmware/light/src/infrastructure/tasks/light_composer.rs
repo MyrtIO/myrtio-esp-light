@@ -2,41 +2,54 @@ use embassy_sync::channel::Channel;
 use embassy_time::Duration;
 use esp_hal::gpio::interconnect::PeripheralOutput;
 use esp_hal::peripherals::RMT;
-use myrtio_light_composer::CommandChannel;
-use myrtio_light_composer::effect::StaticColorEffect;
-use myrtio_light_composer::{ColorCorrection, EffectSlot, LightEngine};
+
+use myrtio_light_composer::color::rgb_from_u32;
+use myrtio_light_composer::{
+    CommandChannel, CommandSender, EffectProcessorConfig, LightEngine, LightEngineConfig, ModeId,
+    Rgb, TransitionConfig,
+};
 
 use crate::infrastructure::config;
 use crate::infrastructure::drivers::EspLedDriver;
-use crate::infrastructure::types::{LightCommandSender, LightDriver};
+use crate::infrastructure::types::LightDriver;
 
-static LIGHT_COMMAND_CHANNEL: CommandChannel<{ config::LIGHT_LED_COUNT }> = Channel::new();
+static LIGHT_COMMAND_CHANNEL: CommandChannel = Channel::new();
 
-const LIGHT_COLOR_CORRECTION: ColorCorrection =
-    ColorCorrection::from_rgb(config::LIGHT_COLOR_CORRECTION);
+const LIGHT_COLOR_CORRECTION: Rgb = rgb_from_u32(config::LIGHT_COLOR_CORRECTION);
+const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
+    mode: ModeId::Rainbow,
+    brightness: 0,
+    color: LIGHT_COLOR_CORRECTION,
+    effects: EffectProcessorConfig {
+        brightness_scale: Some(config::LIGHT_MAX_BRIGHTNESS_SCALE),
+        color_correction: Some(LIGHT_COLOR_CORRECTION),
+    },
+    transition_config: TransitionConfig {
+        fade_out_duration: Duration::from_millis(400),
+        fade_in_duration: Duration::from_millis(300),
+        color_change_duration: Duration::from_millis(200),
+        brightness_change_duration: Duration::from_millis(200),
+    },
+};
 
 /// Task for running the light composer
 /// It receives commands from the command channel and updates the light state accordingly.
 #[embassy_executor::task]
 pub(crate) async fn light_composer_task(driver: LightDriver) {
     let receiver = LIGHT_COMMAND_CHANNEL.receiver();
-    let mut engine =
-        LightEngine::new(driver, receiver).with_color_correction(LIGHT_COLOR_CORRECTION).with_brightness_scale(config::LIGHT_MAX_BRIGHTNESS_SCALE);
-
-    engine.set_brightness(0, Duration::from_millis(0));
-    let effect = EffectSlot::Static(StaticColorEffect::default());
-    engine.set_effect(effect);
+    let mut engine: LightEngine<LightDriver, { config::LIGHT_LED_COUNT }> =
+        LightEngine::new(driver, receiver, &LIGHT_CONFIG);
 
     loop {
         engine.tick().await;
     }
 }
 
-pub(crate) fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, LightCommandSender)
+pub(crate) fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, CommandSender)
 where
     O: PeripheralOutput<'static>,
 {
-    let driver = EspLedDriver::<{ config::LIGHT_LED_COUNT }>::new(rmt, pin);
+    let driver = EspLedDriver::new(rmt, pin);
 
     (driver, LIGHT_COMMAND_CHANNEL.sender())
 }

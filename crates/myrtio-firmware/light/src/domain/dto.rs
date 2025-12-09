@@ -12,8 +12,8 @@ pub(crate) struct LightChangeIntent {
     pub brightness: Option<u8>,
     /// Set color to this RGB value
     pub color: Option<(u8, u8, u8)>,
-    /// Set effect by name
-    pub effect: Option<u8>,
+    /// Set mode by ID
+    pub mode_id: Option<u8>,
 }
 
 impl LightChangeIntent {
@@ -23,7 +23,7 @@ impl LightChangeIntent {
             power: None,
             brightness: None,
             color: None,
-            effect: None,
+            mode_id: None,
         }
     }
 
@@ -51,7 +51,7 @@ impl LightChangeIntent {
     /// Set effect
     #[must_use]
     pub(crate) const fn with_effect_id(mut self, effect_id: u8) -> Self {
-        self.effect = Some(effect_id);
+        self.mode_id = Some(effect_id);
         self
     }
 
@@ -68,19 +68,17 @@ impl LightChangeIntent {
     /// Check if this intent implies the light should be on
     /// (explicit on, or brightness/color/effect change)
     pub(crate) fn implies_on(&self) -> bool {
-        self.is_on() || self.brightness.is_some() || self.color.is_some() || self.effect.is_some()
+        self.is_on() || self.brightness.is_some() || self.color.is_some() || self.mode_id.is_some()
     }
 }
 
 impl From<LightState> for LightChangeIntent {
     fn from(state: LightState) -> Self {
-        let power = state.power && state.effect_id != 0;
-        let effect = if power { Some(state.effect_id) } else { None };
         LightChangeIntent {
-            power: Some(power),
+            power: Some(state.power),
             brightness: Some(state.brightness),
             color: Some(state.color),
-            effect,
+            mode_id: Some(state.mode_id),
         }
     }
 }

@@ -1,5 +1,5 @@
 use myrtio_homeassistant::{ColorMode, Device, LightEntity};
-use myrtio_light_composer::effect::EffectName;
+use myrtio_light_composer::ModeId;
 
 use crate::infrastructure::config;
 
@@ -20,8 +20,8 @@ pub(crate) static LIGHT_ENTITY: LightEntity<'static> = LightEntity::builder()
     .brightness(true)
     .color_modes(&[ColorMode::Rgb])
     .effects(Some(&[
-        EffectName::Static.as_str(),
-        EffectName::Rainbow.as_str(),
+        ModeId::Static.as_str(),
+        ModeId::Rainbow.as_str(),
     ]))
     .optimistic(false)
     .build();

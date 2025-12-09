@@ -1,10 +1,10 @@
 use esp_hal::xtensa_lx::interrupt;
 use esp_hal::{gpio::interconnect::PeripheralOutput, peripherals::RMT, rmt::Rmt, time::Rate};
 use esp_hal_smartled::{SmartLedsAdapter, buffer_size, smart_led_buffer};
-use smart_leds::{RGB, SmartLedsWrite};
+use smart_leds::SmartLedsWrite;
 use static_cell::make_static;
 
-use myrtio_light_composer::LedDriver;
+use myrtio_light_composer::{LedDriver, Rgb};
 
 use crate::infrastructure::config;
 
@@ -12,11 +12,11 @@ use crate::infrastructure::config;
 ///
 /// This driver uses the ESP32's RMT (Remote Control) peripheral
 /// to generate the precise timing signals required by WS2812B LEDs.
-pub(crate) struct EspLedDriver<'a, const N: usize> {
+pub(crate) struct EspLedDriver<'a> {
     adapter: SmartLedsAdapter<'a, { buffer_size(config::LIGHT_LED_COUNT) }>,
 }
 
-impl<'a, const N: usize> EspLedDriver<'a, N> {
+impl<'a> EspLedDriver<'a> {
     /// Create a new ESP LED driver
     ///
     /// # Arguments
@@ -37,8 +37,8 @@ impl<'a, const N: usize> EspLedDriver<'a, N> {
     }
 }
 
-impl<const N: usize> LedDriver<N> for EspLedDriver<'static, N> {
-    fn write(&mut self, colors: &[RGB<u8>; N]) {
+impl LedDriver for EspLedDriver<'static> {
+    fn write<const N: usize>(&mut self, colors: &[Rgb; N]) {
         interrupt::free(|| {
             let _ = self.adapter.write(colors.iter().copied());
         });

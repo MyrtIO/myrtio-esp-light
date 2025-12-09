@@ -1,39 +1,28 @@
 #![no_std]
 #![no_main]
 
-//! Light Engine v2 - State Machine Architecture
-//!
-//! Architecture layers:
-//! - `driver` - Hardware abstraction (`[LedDriver]` trait + implementations)
-//! - `effect` - Effect implementations and [`EffectSlot`] enum
-//! - `processor` - Output processing (brightness, gamma, etc.)
-//! - `transition` - Reusable transition utilities (color, etc.)
-//! - `engine` - Main state machine orchestrator
-//! - `state` - Shared state for external observation
-//!
-//! The engine is generic over `LedDriver`, allowing different hardware backends.
-
-pub mod driver;
+pub mod color;
+pub mod command;
 pub mod effect;
 pub mod engine;
-pub mod processor;
-pub mod transition;
 pub mod math8;
+pub mod mode;
+pub mod operation;
+pub mod transition;
 
-// Driver exports
-pub use driver::LedDriver;
+pub use command::{Command, CommandChannel, CommandReceiver, CommandSender};
+pub use effect::EffectProcessorConfig;
+pub use engine::{LightEngine, LightEngineConfig, TransitionConfig};
+pub use mode::{ModeId, ModeSlot};
+pub use operation::{Operation, OperationStack};
 
-// Effect exports
-pub use effect::{EffectId, EffectSlot};
+pub use color::{Rgb, Hsv};
 
-// Engine exports
-pub use engine::{
-    Command, CommandChannel, CommandReceiver, CommandSender, EngineState, LightEngine,
-    TransitionConfig,
-};
-
-// Processor exports
-pub use processor::{ColorCorrection, OutputProcessor};
-
-// Transition exports
-pub use transition::ColorTransition;
+/// Abstract LED driver trait
+///
+/// Implement this trait to support different hardware platforms.
+/// The light engine is generic over this trait.
+pub trait LedDriver {
+    /// Write colors to the LED strip
+    fn write<const N: usize>(&mut self, colors: &[Rgb; N]);
+}
