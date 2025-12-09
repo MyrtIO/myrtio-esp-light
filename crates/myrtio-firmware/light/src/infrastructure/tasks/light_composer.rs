@@ -15,13 +15,13 @@ use crate::infrastructure::types::LightDriver;
 
 static LIGHT_COMMAND_CHANNEL: CommandChannel = Channel::new();
 
-const LIGHT_COLOR_CORRECTION: Rgb = rgb_from_u32(config::LIGHT_COLOR_CORRECTION);
+const LIGHT_COLOR_CORRECTION: Rgb = rgb_from_u32(config::LIGHT.color_correction);
 const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
     mode: ModeId::Rainbow,
     brightness: 0,
     color: LIGHT_COLOR_CORRECTION,
     effects: EffectProcessorConfig {
-        brightness_scale: Some(config::LIGHT_MAX_BRIGHTNESS_SCALE),
+        brightness_scale: Some(config::LIGHT.brightness_max),
         color_correction: Some(LIGHT_COLOR_CORRECTION),
     },
     transition_config: TransitionConfig {
@@ -37,7 +37,7 @@ const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
 #[embassy_executor::task]
 pub(crate) async fn light_composer_task(driver: LightDriver) {
     let receiver = LIGHT_COMMAND_CHANNEL.receiver();
-    let mut engine: LightEngine<LightDriver, { config::LIGHT_LED_COUNT }> =
+    let mut engine: LightEngine<LightDriver, { config::LIGHT.led_count }> =
         LightEngine::new(driver, receiver, &LIGHT_CONFIG);
 
     loop {

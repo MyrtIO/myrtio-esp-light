@@ -7,7 +7,7 @@ use crate::infrastructure::config;
 use crate::infrastructure::services::persistence::LightStateReceiver;
 use crate::infrastructure::types::LightStorageMutex;
 
-const PERSISTENCE_DELAY: Duration = Duration::from_millis(config::STORAGE_WRITE_DEBOUNCE_MS);
+const PERSISTENCE_DELAY: Duration = Duration::from_millis(config::STORAGE.write_debounce_ms);
 
 #[embassy_executor::task]
 pub(crate) async fn storage_persistence_task(

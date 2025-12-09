@@ -5,10 +5,10 @@ use crate::infrastructure::config;
 
 /// Static device definition for Home Assistant
 pub(crate) static DEVICE: Device<'static> = Device::builder()
-    .id(config::DEVICE_ID)
-    .name(config::DEVICE_NAME)
-    .manufacturer(Some(config::DEVICE_MANUFACTURER))
-    .model(Some(config::DEVICE_MODEL))
+    .id(config::DEVICE.id)
+    .name(config::DEVICE.name)
+    .manufacturer(Some(config::DEVICE.manufacturer))
+    .model(Some(config::DEVICE.model))
     .build();
 
 /// Static light entity definition

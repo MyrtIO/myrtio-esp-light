@@ -13,7 +13,7 @@ use crate::infrastructure::config;
 /// This driver uses the ESP32's RMT (Remote Control) peripheral
 /// to generate the precise timing signals required by WS2812B LEDs.
 pub(crate) struct EspLedDriver<'a> {
-    adapter: SmartLedsAdapter<'a, { buffer_size(config::LIGHT_LED_COUNT) }>,
+    adapter: SmartLedsAdapter<'a, { buffer_size(config::LIGHT.led_count) }>,
 }
 
 impl<'a> EspLedDriver<'a> {
@@ -30,7 +30,7 @@ impl<'a> EspLedDriver<'a> {
 
         // Safety: This is a static buffer that lives for the entire program
         // We use make_static! to ensure the buffer has 'static lifetime
-        let rmt_buffer = make_static!(smart_led_buffer!(config::LIGHT_LED_COUNT));
+        let rmt_buffer = make_static!(smart_led_buffer!(config::LIGHT.led_count));
         let adapter = SmartLedsAdapter::new(rmt.channel0, pin, rmt_buffer);
 
         Self { adapter }

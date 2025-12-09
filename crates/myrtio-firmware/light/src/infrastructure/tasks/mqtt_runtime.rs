@@ -51,15 +51,15 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
     socket.set_timeout(Some(Duration::from_secs(60)));
 
-    let broker_addr = resolve_host(stack, config::MQTT_HOST).await?;
+    let broker_addr = resolve_host(stack, config::MQTT.host).await?;
 
     println!(
         "Connecting to MQTT broker {:?}:{}...",
         broker_addr,
-        config::MQTT_PORT
+        config::MQTT.port
     );
     socket
-        .connect((broker_addr, config::MQTT_PORT))
+        .connect((broker_addr, config::MQTT.port))
         .await
         .map_err(|e| {
             println!("TCP connect failed: {:?}", e);
@@ -67,7 +67,7 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
     println!("TCP connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
-    let options = MqttOptions::new(config::DEVICE_ID).with_keep_alive(Duration::from_secs(15));
+    let options = MqttOptions::new(config::DEVICE.id).with_keep_alive(Duration::from_secs(15));
     let mqtt: MqttClient<_, MQTT_MAX_TOPICS, MQTT_BUF_SIZE> = MqttClient::new(transport, options);
 
     // Create the runtime with the provided module

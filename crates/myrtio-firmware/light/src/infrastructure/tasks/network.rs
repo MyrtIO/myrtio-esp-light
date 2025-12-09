@@ -23,8 +23,8 @@ pub(crate) async fn wifi_connection_task(mut controller: WifiController<'static>
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = ModeConfig::Client(
                 ClientConfig::default()
-                    .with_ssid(config::WIFI_SSID.into())
-                    .with_password(config::WIFI_PASSWORD.into()),
+                    .with_ssid(config::WIFI.ssid.into())
+                    .with_password(config::WIFI.password.into()),
             );
             controller.set_config(&client_config).unwrap();
             controller.start_async().await.unwrap();
