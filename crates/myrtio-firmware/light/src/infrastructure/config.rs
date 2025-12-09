@@ -15,6 +15,7 @@ pub(crate) struct DeviceConfig {
     pub name: &'static str,
     pub model: &'static str,
     pub id: &'static str,
+    pub hostname: &'static str,
 }
 
 pub(crate) struct LightConfig {
@@ -48,6 +49,7 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     name: "MyrtIO RS1",
     model: "RS1",
     id: "myrtio_rs1",
+    hostname: "myrtio-rs1",
 };
 #[cfg(not(all(feature = "rs1")))]
 pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
@@ -55,6 +57,7 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     name: "MyrtIO ESP32",
     model: "ESP32",
     id: "myrtio_esp32_unknown",
+    hostname: "myrtio-esp32-unknown",
 };
 
 #[cfg(feature = "rs1")]

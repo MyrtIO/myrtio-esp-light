@@ -38,6 +38,7 @@ embassy-sync = { workspace = true }
 embassy-time = { workspace = true, features = ["generic-queue-16"] }
 embassy-net = { workspace = true, features = [
     "dhcpv4",
+    "dhcpv4-hostname",
     "medium-ethernet",
     "tcp",
     "udp",
