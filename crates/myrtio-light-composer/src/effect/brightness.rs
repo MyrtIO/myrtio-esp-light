@@ -19,6 +19,7 @@ use crate::{color::Rgb, math8::scale8, transition::ValueTransition};
 #[derive(Debug, Clone)]
 pub(crate) struct BrightnessEffect {
     /// Scale factor (0-255 = 0.0-1.0)
+    min_brightness: u8,
     scale: u8,
     /// Current brightness value (0-255)
     brightness: ValueTransition<u8>,
@@ -26,8 +27,9 @@ pub(crate) struct BrightnessEffect {
 
 impl BrightnessEffect {
     /// Create a new brightness effect
-    pub(crate) const fn new(brightness: u8, scale: u8) -> Self {
+    pub(crate) const fn new(brightness: u8, min_brightness: u8, scale: u8) -> Self {
         Self {
+            min_brightness,
             scale,
             brightness: ValueTransition::new_u8(brightness),
         }
@@ -35,9 +37,14 @@ impl BrightnessEffect {
 
     /// Set brightness with smooth transition
     pub(crate) fn set(&mut self, brightness: u8, duration: Duration, now: Instant) {
-        let corrected_brightness = scale8(brightness, self.scale);
+        let brightness = brightness.saturating_sub(self.min_brightness);
+        let corrected_brightness =
+            scale8(brightness, self.scale).saturating_add(self.min_brightness);
         #[cfg(feature = "log")]
-        println!("[BrightnessEffect.set] setting brightness to {:?} ({:?})", brightness, corrected_brightness);
+        println!(
+            "[BrightnessEffect.set] setting brightness to {:?} ({:?})",
+            brightness, corrected_brightness
+        );
         self.brightness.set(corrected_brightness, duration, now);
     }
 

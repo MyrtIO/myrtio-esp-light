@@ -18,6 +18,7 @@ use color_correction::ColorCorrection;
 #[derive(Debug, Default, Clone)]
 pub struct EffectProcessorConfig {
     /// Brightness effect
+    pub brightness_min: Option<u8>,
     pub brightness_scale: Option<u8>,
     /// Color correction
     pub color_correction: Option<Rgb>,
@@ -38,8 +39,9 @@ pub(crate) struct EffectProcessor {
 impl EffectProcessor {
     /// Create a new output processor with default settings
     pub(crate) fn new(config: &EffectProcessorConfig) -> Self {
+        let brightness_min = config.brightness_min.unwrap_or(0);
         let scale = config.brightness_scale.unwrap_or(255);
-        let brightness = BrightnessEffect::new(0, scale);
+        let brightness = BrightnessEffect::new(0, brightness_min, scale);
         let color_correction = config.color_correction.map(ColorCorrection::new);
         Self {
             brightness,

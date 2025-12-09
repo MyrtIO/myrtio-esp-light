@@ -12,7 +12,7 @@ pub mod transition;
 
 pub use command::{Command, CommandChannel, CommandReceiver, CommandSender};
 pub use effect::EffectProcessorConfig;
-pub use engine::{LightEngine, LightEngineConfig, TransitionConfig};
+pub use engine::{LightEngine, LightEngineConfig, TransitionTimings};
 pub use mode::{ModeId, ModeSlot};
 pub use operation::{Operation, OperationStack};
 

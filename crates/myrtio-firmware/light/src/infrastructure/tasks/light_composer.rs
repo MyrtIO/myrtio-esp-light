@@ -6,7 +6,7 @@ use esp_hal::peripherals::RMT;
 use myrtio_light_composer::color::rgb_from_u32;
 use myrtio_light_composer::{
     CommandChannel, CommandSender, EffectProcessorConfig, LightEngine, LightEngineConfig, ModeId,
-    Rgb, TransitionConfig,
+    Rgb, TransitionTimings,
 };
 
 use crate::infrastructure::config;
@@ -21,14 +21,15 @@ const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
     brightness: 0,
     color: LIGHT_COLOR_CORRECTION,
     effects: EffectProcessorConfig {
+        brightness_min: Some(config::LIGHT.brightness_min),
         brightness_scale: Some(config::LIGHT.brightness_max),
         color_correction: Some(LIGHT_COLOR_CORRECTION),
     },
-    transition_config: TransitionConfig {
-        fade_out_duration: Duration::from_millis(400),
-        fade_in_duration: Duration::from_millis(300),
-        color_change_duration: Duration::from_millis(200),
-        brightness_change_duration: Duration::from_millis(200),
+    timings: TransitionTimings {
+        fade_out: Duration::from_millis(400),
+        fade_in: Duration::from_millis(300),
+        color_change: Duration::from_millis(200),
+        brightness: Duration::from_millis(200),
     },
 };
 
