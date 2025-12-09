@@ -11,19 +11,24 @@ use crate::operation::OperationStack;
 use crate::{Command, LedDriver, Operation};
 
 const DEFAULT_FPS: u32 = 90;
-const DEFAULT_FRAME_DURATION: Duration = Duration::from_millis(1000 / DEFAULT_FPS as u64);
+const DEFAULT_FRAME_DURATION_MS: u64 = 1000 / DEFAULT_FPS as u64;
+const DEFAULT_FRAME_DURATION: Duration = Duration::from_millis(DEFAULT_FRAME_DURATION_MS);
+
+/// Maximum drift before resetting frame timing (2 frames worth)
+/// If we fall behind by more than this, we skip the backlog instead of catching up
+const MAX_DRIFT: Duration = Duration::from_millis(2 * DEFAULT_FRAME_DURATION_MS);
 
 /// Configuration for effect transitions
 #[derive(Clone, Copy)]
-pub struct TransitionConfig {
+pub struct TransitionTimings {
     /// Duration of fade-out phase
-    pub fade_out_duration: Duration,
+    pub fade_out: Duration,
     /// Duration of fade-in phase
-    pub fade_in_duration: Duration,
+    pub fade_in: Duration,
     /// Duration of color change
-    pub color_change_duration: Duration,
+    pub color_change: Duration,
     /// Duration of brightness change
-    pub brightness_change_duration: Duration,
+    pub brightness: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +44,7 @@ struct LightState {
 pub struct LightEngineConfig {
     pub mode: ModeId,
     pub effects: EffectProcessorConfig,
-    pub transition_config: TransitionConfig,
+    pub timings: TransitionTimings,
     pub brightness: u8,
     pub color: Rgb,
 }
@@ -49,7 +54,7 @@ pub struct LightEngine<D: LedDriver, const N: usize> {
     // External dependencies and configuration
     driver: D,
     commands: CommandReceiver,
-    transition_config: TransitionConfig,
+    timings: TransitionTimings,
 
     // Internal state
     state: LightState,
@@ -69,7 +74,7 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
         Self {
             driver,
             commands,
-            transition_config: config.transition_config,
+            timings: config.timings,
             state: LightState {
                 color: config.color,
                 current_mode: config.mode.to_mode_slot(config.color),
@@ -86,8 +91,14 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
     ///
     /// This is the main render loop step. Call this continuously.
     pub async fn tick(&mut self) {
-        self.next_frame += DEFAULT_FRAME_DURATION;
         let now = Instant::now();
+
+        // Drift correction: if we've fallen too far behind, reset to now
+        // This prevents catch-up bursts after long stalls
+        if now > self.next_frame + MAX_DRIFT {
+            self.next_frame = now;
+        }
+        self.next_frame += DEFAULT_FRAME_DURATION;
 
         self.process_commands();
         self.process_operations(now);
@@ -128,32 +139,22 @@ impl<D: LedDriver, const N: usize> LightEngine<D, N> {
         // Start the transition for the current operation
         match next {
             Command::SetBrightness(brightness) => {
-                self.effects.brightness.set(
-                    brightness,
-                    self.transition_config.brightness_change_duration,
-                    now,
-                );
+                self.effects
+                    .brightness
+                    .set(brightness, self.timings.brightness, now);
             }
             Command::SetColor(color) => {
-                self.state.current_mode.set_color(
-                    color,
-                    self.transition_config.color_change_duration,
-                    now,
-                );
+                self.state
+                    .current_mode
+                    .set_color(color, self.timings.color_change, now);
             }
             Command::PowerOff => {
-                self.effects.brightness.set(
-                    0,
-                    self.transition_config.brightness_change_duration,
-                    now,
-                );
+                self.effects.brightness.set(0, self.timings.brightness, now);
             }
             Command::PowerOn => {
-                self.effects.brightness.set(
-                    self.state.brightness,
-                    self.transition_config.brightness_change_duration,
-                    now,
-                );
+                self.effects
+                    .brightness
+                    .set(self.state.brightness, self.timings.brightness, now);
             }
             Command::SwitchMode(_mode) => {
                 // This command changes instantly
