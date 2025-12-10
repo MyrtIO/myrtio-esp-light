@@ -1,5 +1,6 @@
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
+use esp_println::println;
 
 use crate::domain::entity::LightState;
 use crate::domain::ports::PersistentLightStateWriter;
@@ -14,6 +15,7 @@ pub(crate) async fn storage_persistence_task(
     storage: &'static LightStorageMutex,
     receiver: LightStateReceiver,
 ) {
+    println!("persistence: starting persistence task");
     let mut pending_state: Option<LightState> = None;
 
     loop {

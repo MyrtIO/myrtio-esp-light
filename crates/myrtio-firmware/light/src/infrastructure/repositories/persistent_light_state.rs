@@ -6,7 +6,7 @@ use myrtio_core::storage::{Encodable, MAGIC_HEADER_SIZE, PersistentStorage, Stor
 
 use crate::domain::entity::{ColorMode, LightState};
 use crate::domain::ports::{LightStateReader, PersistentLightStateWriter};
-use crate::infrastructure::drivers::EspNorFlashStorageDriver;
+use crate::infrastructure::drivers::{EspNorFlashStorageDriver, FlashStorageMutex, init_flash_storage_mutex};
 use crate::infrastructure::types::LightStorageMutex;
 
 /// Concrete storage driver used by the firmware.
@@ -76,10 +76,22 @@ where
     }
 }
 
-/// Initialize the flash storage
-pub(crate) fn init_flash_storage(flash: FLASH<'static>) -> LightStorageMutex {
-    let driver = LightStorageDriver::new(flash);
+/// Initialize the flash storage subsystem.
+///
+/// This initializes the shared flash mutex and creates the light state storage.
+/// Returns a tuple of:
+/// - The light storage mutex (for persistence service)
+/// - The flash storage mutex (for OTA service)
+pub(crate) fn init_flash_storage(flash: FLASH<'static>) -> (LightStorageMutex, &'static FlashStorageMutex) {
+    // Initialize the shared flash mutex
+    let flash_mutex = init_flash_storage_mutex(flash);
+    
+    // Create the light storage driver using the shared flash mutex
+    let driver = LightStorageDriver::new(flash_mutex);
     let storage = LightNorFlashStorage::new(driver);
-
-    Mutex::new(RefCell::new(storage))
+    
+    // Wrap in mutex for the persistence service
+    let light_storage_mutex = Mutex::new(RefCell::new(storage));
+    
+    (light_storage_mutex, flash_mutex)
 }

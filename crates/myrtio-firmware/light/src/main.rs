@@ -16,16 +16,17 @@ use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 
 use crate::app::LightUsecases;
-use crate::controllers::init_controllers;
+use crate::controllers::{init_controllers, OtaController};
 use crate::domain::ports::OnBootHandler;
 use crate::infrastructure::drivers::init_network_stack;
 use crate::infrastructure::repositories::init_flash_storage;
 use crate::infrastructure::services::{
-    LightStatePersistenceService, LightStateService, get_persistence_receiver,
+    LightStatePersistenceService, LightStateService, OtaService, get_persistence_receiver,
 };
 use crate::infrastructure::tasks::light_composer::{init_light_composer, light_composer_task};
 use crate::infrastructure::tasks::{
-    mqtt_runtime_task, network_runner_task, storage_persistence_task, wifi_connection_task,
+    mqtt_runtime_task, network_runner_task, ota_invite_task, storage_persistence_task,
+    wifi_connection_task,
 };
 use crate::infrastructure::types::LightStorageMutex;
 
@@ -59,8 +60,15 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
+    // Initialize flash storage (returns both light storage mutex and shared flash mutex)
+    let (light_storage, flash_mutex) = init_flash_storage(peripherals.FLASH);
+    let storage = mk_static!(LightStorageMutex, light_storage);
+
+    // Initialize OTA service and handle boot state early
+    let ota_service = mk_static!(OtaService, OtaService::new(flash_mutex));
+    ota_service.handle_boot_state();
+
     let receiver = get_persistence_receiver();
-    let storage = mk_static!(LightStorageMutex, init_flash_storage(peripherals.FLASH));
     let persistence_service = LightStatePersistenceService::new(storage);
 
     // Initialize light composer and spawn its task
@@ -69,6 +77,12 @@ async fn main(spawner: Spawner) -> ! {
     spawner
         .spawn(storage_persistence_task(storage, receiver))
         .ok();
+
+    // Create OTA controller with a cloned command sender
+    let ota_controller = mk_static!(
+        OtaController,
+        OtaController::new(ota_service, cmd_sender)
+    );
 
     // Initialize usecases and controllers
     let state_service = LightStateService::new(cmd_sender);
@@ -87,8 +101,9 @@ async fn main(spawner: Spawner) -> ! {
     // Wait for network connection before starting network-dependent tasks
     myrtio_core::net::wait_for_connection(stack).await;
 
-    // Initialize MQTT module and spawn MQTT task
+    // Spawn MQTT and OTA tasks
     spawner.spawn(mqtt_runtime_task(stack, mqtt_module)).ok();
+    spawner.spawn(ota_invite_task(stack, ota_controller)).ok();
 
     loop {
         embassy_time::Timer::after(Duration::from_secs(5)).await;

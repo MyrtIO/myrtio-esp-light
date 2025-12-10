@@ -1,6 +1,7 @@
 mod boot;
 pub(crate) mod dependencies;
 mod mqtt;
+pub(crate) mod ota;
 
 use myrtio_mqtt::runtime::MqttModule;
 
@@ -9,6 +10,8 @@ use dependencies::LIGHT_USECASES;
 use mqtt::init_mqtt_module;
 
 use crate::domain::types::LightUsecasesPortRef;
+
+pub(crate) use ota::OtaController;
 
 pub(crate) fn init_controllers(
     usecases: LightUsecasesPortRef,

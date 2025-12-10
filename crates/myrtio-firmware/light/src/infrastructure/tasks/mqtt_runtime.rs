@@ -21,24 +21,15 @@ const MQTT_OUTBOX_DEPTH: usize = 4;
 const MQTT_MAX_TOPICS: usize = 8;
 const MQTT_BUF_SIZE: usize = 512;
 
-/// Static channel for publish requests (used by the runtime)
 static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> = Channel::new();
 
 /// MQTT runtime task that accepts any module implementing `MqttModule`.
-///
-/// This task handles:
-/// - TCP connection management
-/// - MQTT client lifecycle
-/// - Reconnection on failure
-///
-/// The module is passed as a `&'static mut dyn MqttModule` trait object,
-/// allowing the infrastructure to be completely decoupled from any specific
-/// module implementation.
 #[embassy_executor::task]
 pub async fn mqtt_runtime_task(stack: Stack<'static>, module: &'static mut dyn MqttModule) {
+    println!("mqtt: starting runtime task");
     loop {
         if let Err(_e) = run_mqtt_client(stack, module).await {
-            println!("MQTT connection lost, reconnecting in 2s...");
+            println!("mqtt: connection lost, reconnecting in 2s...");
             embassy_time::Timer::after(Duration::from_secs(2)).await;
         }
     }
@@ -54,7 +45,7 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
     let broker_addr = resolve_host(stack, config::MQTT.host).await?;
 
     println!(
-        "Connecting to MQTT broker {:?}:{}...",
+        "mqtt: connecting to broker {:?}:{}...",
         broker_addr,
         config::MQTT.port
     );
@@ -62,9 +53,9 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
         .connect((broker_addr, config::MQTT.port))
         .await
         .map_err(|e| {
-            println!("TCP connect failed: {:?}", e);
+            println!("mqtt: TCP connect failed: {:?}", e);
         })?;
-    println!("TCP connected");
+    println!("mqtt: TCP socket connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
     let options = MqttOptions::new(config::DEVICE.id).with_keep_alive(Duration::from_secs(15));
@@ -81,6 +72,6 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
     > = MqttRuntime::new(mqtt, module, PUBLISH_CHANNEL.receiver());
 
     runtime.run().await.map_err(|e| {
-        println!("MQTT runtime error: {:?}", e);
+        println!("mqtt: runtime error: {:?}", e);
     })
 }

@@ -10,6 +10,8 @@ use static_cell::make_static;
 
 use crate::infrastructure::config;
 
+const MAX_CONNECTIONS: usize = 6;
+
 pub(crate) fn init_network_stack(
     wifi_device: WIFI<'static>,
 ) -> (
@@ -27,7 +29,7 @@ pub(crate) fn init_network_stack(
 
     let net_config = embassy_net::Config::dhcpv4(dhcp_config);
 
-    let network_resources = make_static!(StackResources::<3>::new());
+    let network_resources = make_static!(StackResources::<MAX_CONNECTIONS>::new());
     let (stack, runner) =
         embassy_net::new(interfaces.sta, net_config, network_resources, get_seed());
 
