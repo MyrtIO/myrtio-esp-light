@@ -20,6 +20,7 @@ pub(crate) struct DeviceConfig {
 
 pub(crate) struct LightConfig {
     pub led_count: usize,
+    pub skip_leds: usize,
     pub color_correction: u32,
     pub brightness_min: u8,
     pub brightness_max: u8,
@@ -51,7 +52,15 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     id: "myrtio_rs1",
     hostname: "myrtio-rs1",
 };
-#[cfg(not(all(feature = "rs1")))]
+#[cfg(feature = "curtain")]
+pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
+    manufacturer: DEVICE_MANUFACTURER,
+    name: "MyrtIO Curtain",
+    model: "Curtain",
+    id: "myrtio_curtain",
+    hostname: "myrtio-curtain",
+};
+#[cfg(not(any(feature = "rs1", feature = "curtain")))]
 pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     manufacturer: DEVICE_MANUFACTURER,
     name: "MyrtIO ESP32",
@@ -63,15 +72,27 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
 #[cfg(feature = "rs1")]
 pub(crate) const LIGHT: LightConfig = LightConfig {
     led_count: 26,
+    skip_leds: 1,
     color_correction: 0xFFAA78,
     brightness_min: 10,
     brightness_max: 100,
     temperature_max_kelvin: 6500,
     temperature_min_kelvin: 1500,
 };
-#[cfg(not(all(feature = "rs1")))]
+#[cfg(feature = "curtain")]
+pub(crate) const LIGHT: LightConfig = LightConfig {
+    led_count: 26,
+    skip_leds: 0,
+    color_correction: 0xFFAA78,
+    brightness_min: 10,
+    brightness_max: 180,
+    temperature_max_kelvin: 6500,
+    temperature_min_kelvin: 1500,
+};
+#[cfg(not(any(feature = "rs1", feature = "curtain")))]
 pub(crate) const LIGHT: LightConfig = LightConfig {
     led_count: 6,
+    skip_leds: 0,
     color_correction: 0xFFFFFF,
     brightness_min: 0,
     brightness_max: 100,

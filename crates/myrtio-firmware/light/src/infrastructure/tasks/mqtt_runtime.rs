@@ -19,7 +19,7 @@ use crate::infrastructure::config;
 
 const MQTT_OUTBOX_DEPTH: usize = 4;
 const MQTT_MAX_TOPICS: usize = 8;
-const MQTT_BUF_SIZE: usize = 512;
+const MQTT_BUF_SIZE: usize = 1024;
 
 static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> = Channel::new();
 

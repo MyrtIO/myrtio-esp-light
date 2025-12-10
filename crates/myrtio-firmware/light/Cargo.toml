@@ -60,6 +60,7 @@ dotenv-build = "0.1.1"
 [features]
 default = []
 rs1 = []
+curtain = []
 
 [lints]
 workspace = true

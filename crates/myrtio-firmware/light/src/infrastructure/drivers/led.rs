@@ -39,8 +39,18 @@ impl<'a> EspLedDriver<'a> {
 
 impl LedDriver for EspLedDriver<'static> {
     fn write<const N: usize>(&mut self, colors: &[Rgb; N]) {
-        interrupt::free(|| {
-            let _ = self.adapter.write(colors.iter().copied());
-        });
+        if config::LIGHT.skip_leds != 0 {
+            let mut colors_with_skip: [Rgb; N] = [Rgb::new(0, 0, 0); N];
+            for i in config::LIGHT.skip_leds..N {
+                colors_with_skip[i] = colors[i - config::LIGHT.skip_leds];
+            }
+            interrupt::free(|| {
+                let _ = self.adapter.write(colors_with_skip.iter().copied());
+            });
+        } else {
+            interrupt::free(|| {
+                let _ = self.adapter.write(colors.iter().copied());
+            });
+        }
     }
 }

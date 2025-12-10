@@ -12,6 +12,11 @@ run-rs1:
     source $HOME/export-esp.sh
     cargo --config '{{CARGO_CONFIG}}' run --bin myrtio-light-firmware --release --features rs1
 
+run-curtain:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+    cargo --config '{{CARGO_CONFIG}}' run --bin myrtio-light-firmware --release --features curtain
+
 lint:
     cargo clippy --config .cargo/config_esp32.toml
 
