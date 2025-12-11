@@ -15,7 +15,6 @@ Usage:
 import argparse
 import hashlib
 import http.server
-import os
 import socket
 import socketserver
 import sys
@@ -107,11 +106,19 @@ def serve_until_complete(server: socketserver.TCPServer):
 
 def send_ota_invite(host: str, tcp_port: int, http_host: str, http_port: int,
                     path: str, size: int, md5: str) -> bool:
-    """Send OTA invite to the device and wait for acknowledgment."""
+    """Send OTA invite to the device.
+    
+    Returns True if the invite was sent successfully, regardless of whether
+    an ACK was received. The actual success is determined by whether the
+    device downloads the firmware via HTTP.
+    """
     print(f"[OTA] Connecting to {host}:{tcp_port}...")
 
+    sock = None
+    invite_sent = False
+    
     try:
-        # Resolve hostname
+        # Phase 1: Resolve hostname
         addr_info = socket.getaddrinfo(host, tcp_port, socket.AF_INET, socket.SOCK_STREAM)
         if not addr_info:
             print(f"[OTA] Failed to resolve {host}")
@@ -120,46 +127,72 @@ def send_ota_invite(host: str, tcp_port: int, http_host: str, http_port: int,
         addr = addr_info[0][4]
         print(f"[OTA] Resolved to {addr[0]}")
 
-        # Connect to device
+        # Phase 2: Connect to device
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(INVITE_TIMEOUT)
         sock.connect(addr)
 
-        print(f"[OTA] Connected, sending invite...")
+        print("[OTA] Connected, sending invite...")
 
-        # Build and send invite
+        # Phase 3: Send invite
         invite = f"HOST={http_host}\nPORT={http_port}\nPATH={path}\nSIZE={size}\nMD5={md5}\n\n"
         sock.sendall(invite.encode())
+        invite_sent = True
 
-        print(f"[OTA] Invite sent:")
+        print("[OTA] Invite sent:")
         print(f"      HOST={http_host}")
         print(f"      PORT={http_port}")
         print(f"      PATH={path}")
         print(f"      SIZE={size}")
         print(f"      MD5={md5}")
 
-        # Wait for ACK
-        sock.settimeout(INVITE_TIMEOUT)
-        response = sock.recv(64).decode().strip()
+        # Phase 4: Optionally wait for ACK (non-fatal if missing)
+        try:
+            sock.settimeout(INVITE_TIMEOUT)
+            response = sock.recv(64).decode().strip()
 
-        if response == "OK":
-            print(f"[OTA] Device acknowledged, starting download...")
-            sock.close()
-            return True
-        else:
-            print(f"[OTA] Unexpected response: {response}")
-            sock.close()
-            return False
+            if response == "OK":
+                print("[OTA] Device acknowledged")
+            elif response:
+                print(f"[OTA] Device response: {response}")
+            else:
+                print("[OTA] Device closed connection (no ACK)")
+        except (socket.timeout, ConnectionResetError, BrokenPipeError, OSError):
+            # ACK is optional - device may close connection immediately after
+            # receiving invite and start downloading
+            print("[OTA] Device closed control connection, proceeding...")
+        
+        return True
 
     except socket.timeout:
-        print(f"[OTA] Connection timeout")
+        if invite_sent:
+            # Timeout after sending is non-fatal
+            print("[OTA] No response after invite, proceeding...")
+            return True
+        print("[OTA] Connection timeout")
         return False
     except ConnectionRefusedError:
-        print(f"[OTA] Connection refused - device may not be running OTA listener")
+        print("[OTA] Connection refused - device may not be running OTA listener")
+        return False
+    except (ConnectionResetError, BrokenPipeError, OSError) as e:
+        if invite_sent:
+            # Connection reset after sending is non-fatal
+            print("[OTA] Device closed control connection, proceeding...")
+            return True
+        print(f"[OTA] Connection error: {e}")
         return False
     except Exception as e:
+        if invite_sent:
+            print(f"[OTA] Warning after invite: {e}")
+            return True
         print(f"[OTA] Error: {e}")
         return False
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
 
 
 def main():
@@ -219,7 +252,10 @@ Examples:
 
     if not success:
         print("[OTA] Failed to send invite")
-        server.shutdown()
+        # We use a custom serving loop in a daemon thread, so we only need to
+        # close the server socket here. Calling shutdown() would block because
+        # we never call serve_forever().
+        server.server_close()
         sys.exit(1)
 
     # Wait for download to complete
@@ -229,7 +265,7 @@ Examples:
         elapsed = time.time() - start_time
         if elapsed > HTTP_SERVER_TIMEOUT:
             print("[OTA] Timeout waiting for download")
-            server.shutdown()
+            server.server_close()
             sys.exit(1)
         # Print progress dot every 5 seconds
         if int(elapsed) % 5 == 0 and int(elapsed) > 0:
@@ -237,9 +273,9 @@ Examples:
 
     print("\n[OTA] Update complete! Device should reboot shortly.")
 
-    # Give the server a moment to finish
-    time.sleep(1)
-    server.shutdown()
+    # Give the server a moment to finish sending any remaining data
+    time.sleep(0.5)
+    server.server_close()
     sys.exit(0)
 
 
