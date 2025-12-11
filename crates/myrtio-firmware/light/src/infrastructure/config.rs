@@ -32,6 +32,10 @@ pub(crate) struct StorageConfig {
     pub write_debounce_ms: u64,
 }
 
+pub(crate) struct FirmwareConfig {
+    pub version: &'static str,
+}
+
 pub(crate) const DEVICE_MANUFACTURER: &str = "MyrtIO";
 
 pub(crate) const WIFI: WifiConfig = WifiConfig {
@@ -102,6 +106,10 @@ pub(crate) const LIGHT: LightConfig = LightConfig {
 
 pub(crate) const STORAGE: StorageConfig = StorageConfig {
     write_debounce_ms: 5000,
+};
+
+pub(crate) const FIRMWARE: FirmwareConfig = FirmwareConfig {
+    version: env!("BUILD_VERSION"),
 };
 
 #[macro_export]

@@ -9,6 +9,7 @@ pub(crate) static DEVICE: Device<'static> = Device::builder()
     .name(config::DEVICE.name)
     .manufacturer(Some(config::DEVICE.manufacturer))
     .model(Some(config::DEVICE.model))
+    .sw_version(Some(config::FIRMWARE.version))
     .build();
 
 /// Static light entity definition
