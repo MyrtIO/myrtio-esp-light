@@ -3,7 +3,7 @@ use embassy_time::{Duration, Timer};
 use esp_println::println;
 
 use crate::domain::entity::LightState;
-use crate::domain::ports::PersistentLightStateWriter;
+use crate::domain::ports::PersistentLightStateHandler;
 use crate::infrastructure::config;
 use crate::infrastructure::services::persistence::LightStateReceiver;
 use crate::infrastructure::types::LightStorageMutex;
@@ -34,12 +34,9 @@ pub(crate) async fn storage_persistence_task(
                     }
                     Either::Second(()) => {
                         if let Some(state) = pending_state {
-                            storage.lock(|cell| {
-                                let mut storage = cell.borrow_mut();
-                                storage
-                                    .save_state(state)
-                                    .expect("Failed to save light state to storage");
-                            });
+                            let storage_guard = storage.lock().await;
+                            let mut storage = storage_guard.borrow_mut();
+                            storage.save_persistent_light_state(state).await.expect("Failed to save light state to storage");
                             pending_state = None;
                         }
                     }

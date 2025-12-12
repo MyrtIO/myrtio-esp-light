@@ -1,24 +1,66 @@
-set dotenv-load := true
-
 CARGO_CONFIG := 'unstable.build-std = ["alloc", "core"]'
+PARTITION_TABLE := 'crates/myrtio-firmware/light/partitions.csv'
 
-build-esp32:
+build-light *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
-    cargo build --bin myrtio-light-firmware --config '{{CARGO_CONFIG}}'
 
-run-rs1:
+    cargo build \
+        --bin myrtio-light-firmware \
+        --config '{{CARGO_CONFIG}}' \
+        {{ARGS}}
+
+run-light *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
-    cargo --config '{{CARGO_CONFIG}}' run --bin myrtio-light-firmware --release --features rs1
 
-run-curtain:
+    cargo run \
+        --bin myrtio-light-firmware \
+        --config '{{CARGO_CONFIG}}' \
+        {{ARGS}}
+
+ota-light device="" host="" chip="esp32":
     #!/bin/bash
     source $HOME/export-esp.sh
-    cargo --config '{{CARGO_CONFIG}}' run --bin myrtio-light-firmware --release --features curtain
 
-lint:
-    cargo clippy --config .cargo/config_esp32.toml
+    if test -z "{{device}}"; then
+        echo "Device is required"
+        exit 1
+    fi
+    if test -z "{{host}}"; then
+        echo "Host is required"
+        exit 1
+    fi
+    echo "Building firmware..."
+    cargo build \
+        --bin myrtio-light-firmware \
+        --release \
+        --features {{device}}
+
+    release_path="target/xtensa-esp32-none-elf/release/myrtio-light-firmware"
+    ota_path="$release_path.ota.bin"
+
+    echo "Creating OTA image..."
+    export ota_dir="target/ota/{{device}}"
+    espflash save-image \
+        --chip {{chip}} \
+        --partition-table={{PARTITION_TABLE}} \
+        $release_path \
+        $ota_path
+    python3 scripts/ota.py --host {{host}} --image $ota_path
+
+
+lint *ARGS:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+
+    cargo clippy {{ARGS}}
+
+lint-fix *ARGS:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+
+    cargo clippy --fix --allow-dirty {{ARGS}}
 
 # Test the myrtio-macros crate (requires separate target dir due to workspace esp config)
 test package="":

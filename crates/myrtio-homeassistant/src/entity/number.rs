@@ -98,3 +98,6 @@ pub struct NumberRegistration<'a> {
     pub provide_state: fn() -> i32,
     pub on_command: fn(i32),
 }
+
+
+

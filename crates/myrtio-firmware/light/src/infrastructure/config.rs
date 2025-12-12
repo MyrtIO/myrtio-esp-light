@@ -64,7 +64,23 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     id: "myrtio_curtain",
     hostname: "myrtio-curtain",
 };
-#[cfg(not(any(feature = "rs1", feature = "curtain")))]
+#[cfg(feature = "bar")]
+pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
+    manufacturer: DEVICE_MANUFACTURER,
+    name: "MyrtIO Bar",
+    model: "Bar",
+    id: "myrtio_bar",
+    hostname: "myrtio-bar",
+};
+#[cfg(feature = "ceiling")]
+pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
+    manufacturer: DEVICE_MANUFACTURER,
+    name: "MyrtIO Ceiling",
+    model: "Ceiling",
+    id: "myrtio_ceiling",
+    hostname: "myrtio-ceiling",
+};
+#[cfg(not(any(feature = "rs1", feature = "curtain", feature = "bar", feature = "ceiling")))]
 pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
     manufacturer: DEVICE_MANUFACTURER,
     name: "MyrtIO ESP32",
@@ -76,7 +92,7 @@ pub(crate) const DEVICE: DeviceConfig = DeviceConfig {
 #[cfg(feature = "rs1")]
 pub(crate) const LIGHT: LightConfig = LightConfig {
     led_count: 26,
-    skip_leds: 1,
+    skip_leds: 2,
     color_correction: 0xFFAA78,
     brightness_min: 10,
     brightness_max: 100,
@@ -93,7 +109,27 @@ pub(crate) const LIGHT: LightConfig = LightConfig {
     temperature_max_kelvin: 6500,
     temperature_min_kelvin: 1500,
 };
-#[cfg(not(any(feature = "rs1", feature = "curtain")))]
+#[cfg(feature = "bar")]
+pub(crate) const LIGHT: LightConfig = LightConfig {
+    led_count: 85,
+    skip_leds: 1,
+    color_correction: 0xFFAA78,
+    brightness_min: 10,
+    brightness_max: 250,
+    temperature_max_kelvin: 6500,
+    temperature_min_kelvin: 1500,
+};
+#[cfg(feature = "ceiling")]
+pub(crate) const LIGHT: LightConfig = LightConfig {
+    led_count: 23,
+    skip_leds: 1,
+    color_correction: 0xFFAA78,
+    brightness_min: 10,
+    brightness_max: 100,
+    temperature_max_kelvin: 6500,
+    temperature_min_kelvin: 1500,
+};
+#[cfg(not(any(feature = "rs1", feature = "curtain", feature = "bar", feature = "ceiling")))]
 pub(crate) const LIGHT: LightConfig = LightConfig {
     led_count: 6,
     skip_leds: 0,

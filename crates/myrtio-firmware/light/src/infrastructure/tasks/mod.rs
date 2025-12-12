@@ -1,10 +1,10 @@
 pub(crate) mod light_composer;
 pub(crate) mod mqtt_runtime;
 pub(crate) mod network;
-pub(crate) mod ota_invite;
-pub(crate) mod persistence;
+pub(crate) mod ota;
+pub(crate) mod flash_actor;
 
 pub(crate) use mqtt_runtime::mqtt_runtime_task;
 pub(crate) use network::{network_runner_task, wifi_connection_task};
-pub(crate) use ota_invite::ota_invite_task;
-pub(crate) use persistence::storage_persistence_task;
+pub(crate) use ota::ota_invite_task;
+pub(crate) use flash_actor::{flash_actor_task, get_ota_sender, wait_initial_state};

@@ -1,13 +1,8 @@
-use core::cell::RefCell;
-
-use embassy_sync::blocking_mutex::Mutex;
-use esp_hal::peripherals::FLASH;
 use myrtio_core::storage::{Encodable, MAGIC_HEADER_SIZE, PersistentStorage, StorageDriver};
 
 use crate::domain::entity::{ColorMode, LightState};
-use crate::domain::ports::{LightStateReader, PersistentLightStateWriter};
-use crate::infrastructure::drivers::{EspNorFlashStorageDriver, FlashStorageMutex, init_flash_storage_mutex};
-use crate::infrastructure::types::LightStorageMutex;
+use crate::domain::ports::PersistentLightStateHandler;
+use crate::infrastructure::drivers::EspNorFlashStorageDriver;
 
 /// Concrete storage driver used by the firmware.
 pub(crate) type LightStorageDriver = EspNorFlashStorageDriver<{ STORAGE_SIZE }>;
@@ -55,43 +50,20 @@ impl Encodable<LIGHT_STATE_SIZE> for LightState {
 /// Total size of the light state in storage
 const STORAGE_SIZE: usize = LIGHT_STATE_SIZE + MAGIC_HEADER_SIZE;
 
-impl<DRIVER> LightStateReader for LightStorage<DRIVER>
+impl<DRIVER: Send + Sync> PersistentLightStateHandler for LightStorage<DRIVER>
 where
     DRIVER: StorageDriver<{ STORAGE_SIZE }>,
 {
-    fn get_light_state(&self) -> Option<LightState> {
+    async fn get_persistent_light_state(&self) -> Option<LightState> {
         self.load::<{ LIGHT_STATE_SIZE }, LightState>()
+            .await
             .map_err(|_| ())
             .ok()
     }
-}
 
-impl<DRIVER> PersistentLightStateWriter for LightStorage<DRIVER>
-where
-    DRIVER: StorageDriver<{ STORAGE_SIZE }>,
-{
-    fn save_state(&mut self, state: LightState) -> Result<(), ()> {
+    async fn save_persistent_light_state(&mut self, state: LightState) -> Result<(), ()> {
         self.save::<{ LIGHT_STATE_SIZE }, LightState>(&state)
+            .await
             .map_err(|_| ())
     }
-}
-
-/// Initialize the flash storage subsystem.
-///
-/// This initializes the shared flash mutex and creates the light state storage.
-/// Returns a tuple of:
-/// - The light storage mutex (for persistence service)
-/// - The flash storage mutex (for OTA service)
-pub(crate) fn init_flash_storage(flash: FLASH<'static>) -> (LightStorageMutex, &'static FlashStorageMutex) {
-    // Initialize the shared flash mutex
-    let flash_mutex = init_flash_storage_mutex(flash);
-    
-    // Create the light storage driver using the shared flash mutex
-    let driver = LightStorageDriver::new(flash_mutex);
-    let storage = LightNorFlashStorage::new(driver);
-    
-    // Wrap in mutex for the persistence service
-    let light_storage_mutex = Mutex::new(RefCell::new(storage));
-    
-    (light_storage_mutex, flash_mutex)
 }

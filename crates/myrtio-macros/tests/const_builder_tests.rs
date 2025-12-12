@@ -208,3 +208,6 @@ fn builder_type_is_public() {
     let _builder2: EntityWithOptionsBuilder = EntityWithOptions::builder();
     let _builder3: EntityWithLifetimeBuilder<'static> = EntityWithLifetime::builder();
 }
+
+
+

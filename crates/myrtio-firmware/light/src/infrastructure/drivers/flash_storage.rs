@@ -1,55 +1,35 @@
-//! Flash storage driver with shared mutex access
+//! Flash storage driver used by persistent light state storage.
 //!
-//! Provides thread-safe access to the ESP32's internal flash memory via a
-//! global mutex. Both persistent light state storage and OTA firmware writes
-//! use this shared mutex to prevent concurrent flash access.
+//! Flash is owned by the flash actor task; this driver uses a raw pointer
+//! (single-owner assumption) to perform synchronous flash operations.
 
-use core::cell::RefCell;
-
-use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
-use esp_hal::peripherals::FLASH;
 use esp_storage::FlashStorage;
 use myrtio_core::storage::{StorageDriver, StorageError};
-use static_cell::StaticCell;
 
 pub(crate) const BLOCK_SIZE: u32 = 4096;
 
 /// Base address of the `light_state` partition (defined in partitions.csv).
 const LIGHT_STATE_PARTITION_OFFSET: u32 = 0x31_0000;
 
-/// Type alias for the shared flash storage mutex
-pub(crate) type FlashStorageMutex = Mutex<CriticalSectionRawMutex, RefCell<FlashStorage<'static>>>;
-
-/// Static cell for the flash storage mutex (initialized once)
-static FLASH_STORAGE_CELL: StaticCell<FlashStorageMutex> = StaticCell::new();
-
-/// Initialize the shared flash storage mutex from the FLASH peripheral.
-///
-/// This function should be called once during startup. It returns a static
-/// reference to the mutex that can be shared between the persistent light
-/// state storage and OTA service.
-///
-/// # Panics
-/// Panics if called more than once.
-pub(crate) fn init_flash_storage_mutex(flash: FLASH<'static>) -> &'static FlashStorageMutex {
-    let flash_storage = FlashStorage::new(flash);
-    FLASH_STORAGE_CELL.init(Mutex::new(RefCell::new(flash_storage)))
-}
-
-/// Persistent storage implementation using the shared [`FlashStorageMutex`].
+/// Persistent storage implementation using the flash owned by the flash actor.
 ///
 /// The driver operates strictly within the `light_state` partition
 /// at offset [`LIGHT_STATE_PARTITION_OFFSET`].
 pub(crate) struct EspNorFlashStorageDriver<const SIZE: usize> {
-    storage: &'static FlashStorageMutex,
+    flash: *mut FlashStorage<'static>,
     addr: u32,
 }
 
+// Safety: This driver is only used by the flash actor task which is the sole flash owner.
+// The raw pointer is never accessed concurrently from multiple tasks.
+unsafe impl<const SIZE: usize> Send for EspNorFlashStorageDriver<SIZE> {}
+unsafe impl<const SIZE: usize> Sync for EspNorFlashStorageDriver<SIZE> {}
+
 impl<const SIZE: usize> EspNorFlashStorageDriver<SIZE> {
-    pub(crate) fn new(storage: &'static FlashStorageMutex) -> Self {
+    pub(crate) fn new(flash: *mut FlashStorage<'static>) -> Self {
         Self {
-            storage,
+            flash,
             addr: LIGHT_STATE_PARTITION_OFFSET,
         }
     }
@@ -57,29 +37,22 @@ impl<const SIZE: usize> EspNorFlashStorageDriver<SIZE> {
 
 impl<const SIZE: usize> StorageDriver<SIZE> for EspNorFlashStorageDriver<SIZE> {
     /// Read data from the storage
-    fn read(&self, buffer: &mut [u8]) -> Result<(), StorageError> {
-        self.storage.lock(|cell| {
-            cell.borrow_mut()
-                .read(self.addr, buffer)
-                .map_err(|_| StorageError::DriverError)
-        })
+    async fn read(&self, buffer: &mut [u8]) -> Result<(), StorageError> {
+        // Safety: flash is owned by the flash actor task; no concurrent access.
+        unsafe { &mut *self.flash }
+            .read(self.addr, buffer)
+            .map_err(|_| StorageError::DriverError)
     }
 
     /// Write data to the storage
-    fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
-        self.storage.lock(|cell| {
-            let mut cell_ref = cell.borrow_mut();
-            let erase_result = cell_ref.erase(self.addr, self.addr + BLOCK_SIZE);
-            if erase_result.is_err() {
-                esp_println::println!("Failed to erase flash storage: {:?}", erase_result);
-                return Err(StorageError::DriverError);
-            }
-            let write_result = NorFlash::write(&mut *cell_ref, self.addr, buffer);
-            if write_result.is_err() {
-                esp_println::println!("Failed to write to flash storage: {:?}", write_result);
-                return Err(StorageError::DriverError);
-            }
-            Ok(())
-        })
+    async fn write(&self, buffer: &[u8]) -> Result<(), StorageError> {
+        // Safety: flash is owned by the flash actor task; no concurrent access.
+        let flash = unsafe { &mut *self.flash };
+        flash
+            .erase(self.addr, self.addr + BLOCK_SIZE)
+            .map_err(|_| StorageError::DriverError)?;
+        flash
+            .write(self.addr, buffer)
+            .map_err(|_| StorageError::DriverError)
     }
 }

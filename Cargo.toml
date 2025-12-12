@@ -23,14 +23,14 @@ myrtio-homeassistant = { path = "crates/myrtio-homeassistant" }
 myrtio-core = { path = "crates/myrtio-core" }
 myrtio-macros = { path = "crates/myrtio-macros" }
 
-esp-bootloader-esp-idf = "0.1.0"
+esp-bootloader-esp-idf = "0.4.0"
 esp-hal = "1.0.0"
 esp-alloc = "0.9.0"
 esp-rtos = "0.2.0"
 esp-println = "0.16.1"
 esp-backtrace = "0.18.1"
 esp-radio = "0.17.0"
-esp-storage = "0.8.0"
+esp-storage = "0.8.1"
 esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2" }
 
 embedded-storage = "0.3.1"

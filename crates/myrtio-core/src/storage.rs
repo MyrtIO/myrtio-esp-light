@@ -16,9 +16,10 @@ where
     fn decode(data: &[u8]) -> Option<Self>;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait StorageDriver<const STORAGE_SIZE: usize> {
-    fn read(&self, buffer: &mut [u8]) -> Result<(), StorageError>;
-    fn write(&self, buffer: &[u8]) -> Result<(), StorageError>;
+    async fn read(&self, buffer: &mut [u8]) -> Result<(), StorageError>;
+    async fn write(&self, buffer: &[u8]) -> Result<(), StorageError>;
 }
 
 /// Persistent storage implementation using a storage driver.
@@ -34,10 +35,10 @@ impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize>
     }
 
     /// Load persistent data from flash
-    pub fn load<const SIZE: usize, T: Encodable<SIZE>>(&self) -> Result<T, StorageError> {
+    pub async fn load<const SIZE: usize, T: Encodable<SIZE>>(&self) -> Result<T, StorageError> {
         let mut buffer = [0u8; STORAGE_SIZE];
 
-        match self.driver.read(&mut buffer) {
+        match self.driver.read(&mut buffer).await {
             Ok(()) => {
                 let magic = u16::from_le_bytes([buffer[0], buffer[1]]);
                 if magic == MAGIC_HEADER {
@@ -53,7 +54,7 @@ impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize>
     }
 
     /// Save persistent data to flash
-    pub fn save<const SIZE: usize, T: Encodable<SIZE> + Clone>(
+    pub async fn save<const SIZE: usize, T: Encodable<SIZE> + Clone>(
         &self,
         state: &T,
     ) -> Result<(), StorageError> {
@@ -62,9 +63,10 @@ impl<DRIVER: StorageDriver<STORAGE_SIZE>, const STORAGE_SIZE: usize>
         data[0..MAGIC_HEADER_SIZE].copy_from_slice(&MAGIC_HEADER.to_le_bytes());
         let encoded = state.clone().encode();
         data[MAGIC_HEADER_SIZE..STORAGE_SIZE].copy_from_slice(&encoded);
-        
+
         self.driver
             .write(&data)
+            .await
             .map_err(|_| StorageError::DriverError)
     }
 }

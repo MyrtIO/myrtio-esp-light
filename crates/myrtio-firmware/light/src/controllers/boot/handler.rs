@@ -1,6 +1,6 @@
 use crate::{
     controllers::dependencies::LIGHT_USECASES,
-    domain::{dto::LightChangeIntent, ports::OnBootHandler},
+    domain::{dto::LightChangeIntent, entity::LightState, ports::OnBootHandler},
 };
 
 pub(crate) struct BootController;
@@ -12,12 +12,7 @@ impl BootController {
 }
 
 impl OnBootHandler for BootController {
-    fn on_boot(&self) {
-        let stored_state = LIGHT_USECASES.lock(|cell| {
-            let cell_ref = cell.borrow();
-            cell_ref.as_ref().unwrap().get_persistent_light_state()
-        });
-
+    fn on_boot(&self, stored_state: Option<LightState>) {
         let state = stored_state.unwrap_or_default();
         let intent: LightChangeIntent = state.into();
 

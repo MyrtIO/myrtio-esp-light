@@ -13,19 +13,10 @@ pub(crate) trait LightIntentApplier {
     fn apply_intent(&mut self, intent: LightChangeIntent) -> Result<(), ()>;
 }
 
-/// Writer interface for the persisting light state to the power-loss-safe storage
-pub(crate) trait PersistentLightStateWriter {
-    /// Set the current light state to the persistent storage
-    fn save_state(&mut self, state: LightState) -> Result<(), ()>;
-}
-
 /// Port interface for the light usecases
 pub(crate) trait LightUsecasesPort:
     LightStateReader + LightIntentApplier + Sync + Send
 {
-    /// Get the persistent light state from the storage
-    fn get_persistent_light_state(&self) -> Option<LightState>;
-
     fn apply_intent_and_persist(&mut self, intent: LightChangeIntent) -> Result<(), ()>;
 }
 
@@ -35,14 +26,23 @@ pub(crate) trait LightStateHandler:
 {
 }
 
+/// Writer interface for the persisting light state to the power-loss-safe storage
+pub(crate) trait PersistentLightStateUpdater {
+    /// Set the current light state to the persistent storage
+    fn update_persistent_light_state(&mut self, state: LightState) -> Result<(), ()>;
+}
+
 /// Trait for the light usecases persistence handler
-pub(crate) trait PersistentLightStateHandler:
-    LightStateReader + PersistentLightStateWriter + Sync + Send
-{
+pub(crate) trait PersistentLightStateHandler: Sync + Send {
+    /// Get the persistent light state
+    async fn get_persistent_light_state(&self) -> Option<LightState>;
+
+    /// Set the current light state to the persistent storage
+    async fn save_persistent_light_state(&mut self, state: LightState) -> Result<(), ()>;
 }
 
 /// Trait for the boot controller
 pub(crate) trait OnBootHandler: Sync + Send {
     /// On boot
-    fn on_boot(&self);
+    fn on_boot(&self, stored_state: Option<LightState>);
 }

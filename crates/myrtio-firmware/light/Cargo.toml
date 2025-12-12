@@ -25,7 +25,7 @@ esp-backtrace = { workspace = true, features = [
     "println",
     "panic-handler",
 ] }
-esp-bootloader-esp-idf = { workspace = true }
+esp-bootloader-esp-idf = { workspace = true, features = ["esp32"] }
 esp-hal = { workspace = true, features = ["esp32", "unstable"] }
 esp-println = { workspace = true, features = ["log-04", "esp32"] }
 esp-radio = { workspace = true, features = ["esp32", "wifi"] }
@@ -56,11 +56,14 @@ smart-leds = { workspace = true }
 
 [build-dependencies]
 dotenv-build = "0.1.1"
+chrono = "0.4.31"
 
 [features]
 default = []
 rs1 = []
 curtain = []
+bar = []
+ceiling = []
 
 [lints]
 workspace = true
