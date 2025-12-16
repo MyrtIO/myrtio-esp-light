@@ -2,7 +2,7 @@ use embassy_net::Runner;
 use embassy_time::{Duration, Timer};
 use esp_println::println;
 use esp_radio::wifi::{
-    ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
+    AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
 };
 
 use crate::infrastructure::config;
@@ -19,18 +19,24 @@ pub(crate) async fn wifi_connection_task(mut controller: WifiController<'static>
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
             Timer::after(Duration::from_millis(2000)).await;
         }
-        // Start the controller if it's not started
         if !matches!(controller.is_started(), Ok(true)) {
-            let client_config = ModeConfig::Client(
+            let client_config = if config::WIFI.password.is_empty() {
                 ClientConfig::default()
                     .with_ssid(config::WIFI.ssid.into())
-                    .with_password(config::WIFI.password.into()),
-            );
-            controller.set_config(&client_config).unwrap();
+                    .with_auth_method(AuthMethod::None)
+            } else {
+                ClientConfig::default()
+                    .with_ssid(config::WIFI.ssid.into())
+                    .with_password(config::WIFI.password.into())
+            };
+            let mode_config = ModeConfig::Client(client_config);
+            controller.set_config(&mode_config).unwrap();
             controller.start_async().await.unwrap();
         }
 
+        println!("network: connecting");
         if let Err(e) = controller.connect_async().await {
+            println!("network: error connecting: {e:?}");
             println!("Failed to connect to wifi: {e:?}");
             Timer::after(Duration::from_millis(5000)).await;
         }
