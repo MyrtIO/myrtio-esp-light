@@ -49,12 +49,13 @@ async fn run_mqtt_client(stack: Stack<'static>, module: &mut dyn MqttModule) -> 
         broker_addr,
         config::MQTT.port
     );
-    socket
-        .connect((broker_addr, config::MQTT.port))
-        .await
-        .map_err(|e| {
-            println!("mqtt: TCP connect failed: {:?}", e);
-        })?;
+
+    let connection_result = socket.connect((broker_addr, config::MQTT.port)).await;
+    if let Err(e) = connection_result {
+        socket.abort();
+        println!("mqtt: TCP connect failed: {:?}", e);
+        return Err(());
+    }
     println!("mqtt: TCP socket connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
