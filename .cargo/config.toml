@@ -1,5 +1,5 @@
 [target.xtensa-esp32-none-elf]
-runner = "espflash flash --monitor --chip esp32 --partition-table=crates/myrtio-firmware/light/partitions.csv"
+runner = "espflash flash --monitor --chip esp32 --partition-table=crates/myrtio-firmware/light/partitions.csv --erase-parts otadata"
 # runner = "probe-rs run --chip "
 
 # [target.aarch64-apple-darwin]
