@@ -1,28 +1,24 @@
 CARGO_CONFIG := 'unstable.build-std = ["alloc", "core"]'
 PARTITION_TABLE := 'crates/myrtio-firmware/light/partitions.csv'
 
-build-light *ARGS:
+build *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
 
     cargo build \
-        --bin myrtio-light-firmware \
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
-run-light *ARGS:
+run *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
 
     cargo run \
-        --bin myrtio-light-firmware \
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
-ota-light device="" host="" chip="esp32":
+ota device="" host="" chip="esp32":
     #!/bin/bash
-    source $HOME/export-esp.sh
-
     if test -z "{{device}}"; then
         echo "Device is required"
         exit 1
@@ -32,10 +28,7 @@ ota-light device="" host="" chip="esp32":
         exit 1
     fi
     echo "Building firmware..."
-    cargo build \
-        --bin myrtio-light-firmware \
-        --release \
-        --features {{device}}
+    just build
 
     release_path="target/xtensa-esp32-none-elf/release/myrtio-light-firmware"
     ota_path="$release_path.ota.bin"

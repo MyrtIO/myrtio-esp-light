@@ -1,47 +1,39 @@
-[workspace]
-members = [
-    "crates/myrtio-firmware/light",
-    "crates/myrtio-light-composer",
-    "crates/myrtio-mqtt",
-    "crates/myrtio-homeassistant",
-    "crates/myrtio-core",
-    "crates/myrtio-macros",
-    "unit-tests",
-]
-resolver = "2"
-
-[workspace.package]
+[package]
+name = "myrtio-esp-light"
+version = "0.0.0"
+publish = false
+license = "MIT"
 edition = "2024"
 rust-version = "1.90"
-license = "MIT"
 
-[workspace.dependencies]
-myrtio-light-firmware = { path = "crates/myrtio-firmware/light" }
-myrtio-light-composer = { path = "crates/myrtio-light-composer" }
-myrtio-mqtt = { path = "crates/myrtio-mqtt" }
-myrtio-homeassistant = { path = "crates/myrtio-homeassistant" }
-myrtio-core = { path = "crates/myrtio-core" }
-myrtio-macros = { path = "crates/myrtio-macros" }
+[dependencies]
+myrtio-light-composer = "0.1.0"
+myrtio-mqtt = "0.1.0"
+myrtio-mqtt-homeassistant = "0.1.1"
+# myrtio-core = { path = "crates/myrtio-core" }
+# myrtio-macros = { path = "crates/myrtio-macros" }
 
-esp-bootloader-esp-idf = "0.4.0"
-esp-hal = "1.0.0"
-esp-alloc = "0.9.0"
-esp-rtos = "0.2.0"
-esp-println = "0.16.1"
-esp-backtrace = "0.18.1"
-esp-radio = "0.17.0"
-esp-storage = "0.8.1"
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32"] }
+esp-hal = { version = "1.0.0", features = ["esp32", "unstable"] }
+esp-alloc = { version = "0.9.0", features = ["esp32"] }
+esp-rtos = { version = "0.2.0", features = ["esp-radio", "embassy", "esp32"] }
+esp-println = { version = "0.16.1", features = ["log-04", "esp32"] }
+esp-backtrace = { version = "0.18.1", features = ["esp32", "println", "panic-handler"] }
+esp-radio = { version = "0.17.0", features = ["esp32", "wifi"] }
+esp-storage = { version = "0.8.1", features = ["esp32"] }
 esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2" }
 
 embedded-storage = "0.3.1"
 
 embassy-executor = "0.9.1"
-embassy-time = "0.5.0"
+embassy-time = { version = "0.5.0", features = ["generic-queue-16"] }
 embassy-net = { version = "0.7.1", features = [
     "dhcpv4",
+    "dhcpv4-hostname",
     "medium-ethernet",
     "tcp",
     "udp",
+    "dns",
 ] }
 embassy-sync = { version = "0.7.2" }
 embassy-futures = { version = "0.1.2" }
@@ -57,6 +49,17 @@ heapless = "0.8"
 smart-leds = "0.4.0"
 
 serde = { version = "1.0.228", default-features = false }
+
+[build-dependencies]
+dotenv-build = "0.1.1"
+chrono = "0.4.31"
+
+[features]
+default = []
+rs1 = []
+curtain = []
+bar = []
+ceiling = []
 
 [profile.dev]
 # Rust debug is too slow.
@@ -78,11 +81,11 @@ overflow-checks = false
 [profile.release.package.esp-storage]
 opt-level = 3
 
-[workspace.lints.rust]
+[lints.rust]
 unreachable_pub = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(codspeed)"] }
 
-[workspace.lints.clippy]
+[lints.clippy]
 pedantic = { level = "warn", priority = -2 }
 # Allowed pedantic lints
 char_lit_as_u8 = "allow"
