@@ -1,12 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(type_alias_impl_trait)]
-
-#[macro_use]
-mod app;
-mod controllers;
-mod domain;
-mod infrastructure;
 
 use embassy_executor::Spawner;
 use embassy_time::Duration;
@@ -15,18 +8,19 @@ use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 
-use crate::app::LightUsecases;
-use crate::controllers::{OtaController, init_controllers};
-use crate::domain::ports::OnBootHandler;
-use crate::infrastructure::drivers::{init_network_stack, wait_for_connection};
-use crate::infrastructure::services::{
+use myrtio_esp_light::app::LightUsecases;
+use myrtio_esp_light::controllers::{OtaController, init_controllers};
+use myrtio_esp_light::domain::ports::OnBootHandler;
+use myrtio_esp_light::infrastructure::drivers::{init_network_stack, wait_for_connection};
+use myrtio_esp_light::infrastructure::services::{
     LightStatePersistenceService, LightStateService, get_persistence_receiver,
 };
-use crate::infrastructure::tasks::light_composer::{init_light_composer, light_composer_task};
-use crate::infrastructure::tasks::{
+use myrtio_esp_light::infrastructure::tasks::light_composer::{
+    init_light_composer, light_composer_task,
+};
+use myrtio_esp_light::infrastructure::tasks::{
     flash_actor_task, get_ota_sender, mqtt_runtime_task, network_runner_task, ota_invite_task,
-    wait_initial_state,
-    wifi_connection_task,
+    wait_initial_state, wifi_connection_task,
 };
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -68,7 +62,8 @@ async fn main(spawner: Spawner) -> ! {
     let persistence_service = LightStatePersistenceService::new();
 
     // Initialize light composer and spawn its task
-    let (driver, cmd_sender) = init_light_composer(peripherals.RMT, led_gpio!(peripherals));
+    let (driver, cmd_sender) =
+        init_light_composer(peripherals.RMT, myrtio_esp_light::led_gpio!(peripherals));
     spawner.spawn(light_composer_task(driver)).ok();
 
     // Create OTA controller with a cloned command sender

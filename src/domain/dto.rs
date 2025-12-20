@@ -5,7 +5,7 @@ use crate::domain::entity::LightState;
 /// This is a domain-neutral representation of what the user wants to do,
 /// independent of the source (MQTT, button, HTTP, etc.).
 #[derive(Clone, Debug)]
-pub(crate) struct LightChangeIntent {
+pub struct LightChangeIntent {
     /// Turn on (Some(true)), turn off (Some(false)), or no change (None)
     pub power: Option<bool>,
     /// Set brightness to this value (0-255)

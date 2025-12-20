@@ -65,12 +65,12 @@ impl AtomicLightState {
 /// Global thread-safe lock-free light state
 static LIGHT_STATE: AtomicLightState = AtomicLightState::from_state(&LightState::new());
 
-pub(crate) struct LightStateService {
+pub struct LightStateService {
     cmd_sender: CommandSender,
 }
 
 impl LightStateService {
-    pub(crate) fn new(cmd_sender: CommandSender) -> Self {
+    pub fn new(cmd_sender: CommandSender) -> Self {
         Self { cmd_sender }
     }
 

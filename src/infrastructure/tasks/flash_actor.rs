@@ -27,25 +27,25 @@ pub(crate) const OTA_CHUNK_SIZE: usize = 1024;
 const OTA_CH_CAP: usize = 4;
 
 #[allow(clippy::large_enum_variant)]
-pub(crate) enum OtaMsg {
+pub enum OtaMsg {
     Begin { expected_size: u32 },
     Data { bytes: Vec<u8, OTA_CHUNK_SIZE> },
     Finish,
     Abort,
 }
 
-pub(crate) type OtaSender = Sender<'static, CriticalSectionRawMutex, OtaMsg, OTA_CH_CAP>;
+pub type OtaSender = Sender<'static, CriticalSectionRawMutex, OtaMsg, OTA_CH_CAP>;
 type OtaReceiver = Receiver<'static, CriticalSectionRawMutex, OtaMsg, OTA_CH_CAP>;
 
 static OTA_CHANNEL: Channel<CriticalSectionRawMutex, OtaMsg, OTA_CH_CAP> = Channel::new();
 
-pub(crate) fn get_ota_sender() -> OtaSender {
+pub fn get_ota_sender() -> OtaSender {
     OTA_CHANNEL.sender()
 }
 
 static INIT_STATE_SIGNAL: Signal<CriticalSectionRawMutex, Option<LightState>> = Signal::new();
 
-pub(crate) async fn wait_initial_state() -> Option<LightState> {
+pub async fn wait_initial_state() -> Option<LightState> {
     INIT_STATE_SIGNAL.wait().await
 }
 
@@ -54,7 +54,7 @@ static FLASH_STORAGE_CELL: StaticCell<FlashStorage<'static>> = StaticCell::new()
 const PERSISTENCE_DELAY: Duration = Duration::from_millis(config::STORAGE.write_debounce_ms);
 
 #[embassy_executor::task]
-pub(crate) async fn flash_actor_task(flash: FLASH<'static>, persistence_rx: LightStateReceiver) {
+pub async fn flash_actor_task(flash: FLASH<'static>, persistence_rx: LightStateReceiver) {
     println!("flash_actor: starting");
 
     let flash = FLASH_STORAGE_CELL.init(FlashStorage::new(flash)) as *mut FlashStorage<'static>;

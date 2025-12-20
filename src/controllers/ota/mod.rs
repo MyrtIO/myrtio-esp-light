@@ -1,6 +1,6 @@
 mod handler;
 
-pub(crate) use handler::OtaController;
+pub use handler::OtaController;
 
 
 

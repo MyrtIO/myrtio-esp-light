@@ -20,12 +20,12 @@ const LIGHT_STATE_CHANNEL_SIZE: usize = 4;
 pub(crate) static PERSISTENCE_CHANNEL: LightStateChannel = Channel::new();
 
 /// Service for persisting light state
-pub(crate) struct LightStatePersistenceService<'a> {
+pub struct LightStatePersistenceService<'a> {
     _p: core::marker::PhantomData<&'a ()>,
 }
 
 impl LightStatePersistenceService<'_> {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             _p: core::marker::PhantomData,
         }
@@ -42,6 +42,6 @@ impl PersistentLightStateUpdater for LightStatePersistenceService<'_> {
     }
 }
 
-pub(crate) fn get_persistence_receiver() -> LightStateReceiver {
+pub fn get_persistence_receiver() -> LightStateReceiver {
     PERSISTENCE_CHANNEL.receiver()
 }

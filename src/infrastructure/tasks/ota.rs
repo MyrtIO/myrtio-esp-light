@@ -38,7 +38,7 @@ const MAX_PATH_LEN: usize = 128;
 ///
 /// After a successful update, the controller will trigger a reboot.
 #[embassy_executor::task]
-pub(crate) async fn ota_invite_task(
+pub async fn ota_invite_task(
     stack: Stack<'static>,
     controller: &'static OtaController,
     ota_sender: OtaSender,

@@ -12,7 +12,7 @@ use crate::infrastructure::config;
 /// It connects to the `WiFi` network and waits for the connection to be established.
 /// If the connection is lost, it tries to reconnect.
 #[embassy_executor::task]
-pub(crate) async fn wifi_connection_task(mut controller: WifiController<'static>) {
+pub async fn wifi_connection_task(mut controller: WifiController<'static>) {
     loop {
         // Wait until we're no longer connected
         if esp_radio::wifi::sta_state() == WifiStaState::Connected {
@@ -45,6 +45,6 @@ pub(crate) async fn wifi_connection_task(mut controller: WifiController<'static>
 
 /// Background task for running the network stack
 #[embassy_executor::task]
-pub(crate) async fn network_runner_task(mut runner: Runner<'static, WifiDevice<'static>>) {
+pub async fn network_runner_task(mut runner: Runner<'static, WifiDevice<'static>>) {
     runner.run().await;
 }

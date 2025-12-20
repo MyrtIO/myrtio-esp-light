@@ -14,7 +14,7 @@ use crate::infrastructure::config;
 
 const MAX_CONNECTIONS: usize = 6;
 
-pub(crate) fn init_network_stack(
+pub fn init_network_stack(
     wifi_device: WIFI<'static>,
 ) -> (
     Stack<'static>,
@@ -72,7 +72,7 @@ pub async fn wait_for_connection(stack: Stack<'_>) -> embassy_net::StaticConfigV
 }
 
 /// Resolves a hostname to an IP address
-pub async fn resolve_host(stack: Stack<'static>, host: &str) -> Result<IpAddress, ()> {
+pub(crate) async fn resolve_host(stack: Stack<'static>, host: &str) -> Result<IpAddress, ()> {
     if let Ok(ip) = host.parse::<embassy_net::Ipv4Address>() {
         return Ok(IpAddress::Ipv4(ip));
     }

@@ -40,7 +40,7 @@ const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
 /// Task for running the light composer
 /// It receives commands from the command channel and updates the light state accordingly.
 #[embassy_executor::task]
-pub(crate) async fn light_composer_task(driver: LightDriver) {
+pub async fn light_composer_task(driver: LightDriver) {
     let receiver = LIGHT_COMMAND_CHANNEL.receiver();
     let mut engine: LightEngine<LightDriver, { config::LIGHT.led_count }> =
         LightEngine::new(driver, receiver, &LIGHT_CONFIG);
@@ -50,7 +50,7 @@ pub(crate) async fn light_composer_task(driver: LightDriver) {
     }
 }
 
-pub(crate) fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, CommandSender)
+pub fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, CommandSender)
 where
     O: PeripheralOutput<'static>,
 {

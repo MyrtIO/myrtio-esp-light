@@ -5,13 +5,13 @@ use crate::domain::ports::{
     PersistentLightStateUpdater,
 };
 
-pub(crate) struct LightUsecases<S: LightStateHandler, P: PersistentLightStateUpdater + Send + Sync> {
+pub struct LightUsecases<S: LightStateHandler, P: PersistentLightStateUpdater + Send + Sync> {
     state: S,
     persistence: P,
 }
 
 impl<S: LightStateHandler, P: PersistentLightStateUpdater + Send + Sync> LightUsecases<S, P> {
-    pub(crate) fn new(state: S, persistence: P) -> Self {
+    pub fn new(state: S, persistence: P) -> Self {
         Self { state, persistence }
     }
 }

@@ -14,7 +14,7 @@ pub(crate) trait LightIntentApplier {
 }
 
 /// Port interface for the light usecases
-pub(crate) trait LightUsecasesPort:
+pub trait LightUsecasesPort:
     LightStateReader + LightIntentApplier + Sync + Send
 {
     fn apply_intent_and_persist(&mut self, intent: LightChangeIntent) -> Result<(), ()>;
@@ -42,7 +42,7 @@ pub(crate) trait PersistentLightStateHandler: Sync + Send {
 }
 
 /// Trait for the boot controller
-pub(crate) trait OnBootHandler: Sync + Send {
+pub trait OnBootHandler: Sync + Send {
     /// On boot
     fn on_boot(&self, stored_state: Option<LightState>);
 }

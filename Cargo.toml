@@ -6,6 +6,10 @@ license = "MIT"
 edition = "2024"
 rust-version = "1.90"
 
+[[bin]]
+name = "myrtio-esp-light"
+path = "src/bin/app.rs"
+
 [dependencies]
 myrtio-light-composer = "0.1.0"
 myrtio-mqtt = "0.1.0"

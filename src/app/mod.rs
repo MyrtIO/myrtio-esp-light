@@ -1,3 +1,3 @@
 mod usecases;
 
-pub(crate) use usecases::LightUsecases;
+pub use usecases::LightUsecases;

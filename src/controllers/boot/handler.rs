@@ -3,10 +3,10 @@ use crate::{
     domain::{dto::LightChangeIntent, entity::LightState, ports::OnBootHandler},
 };
 
-pub(crate) struct BootController;
+pub struct BootController;
 
 impl BootController {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {}
     }
 }

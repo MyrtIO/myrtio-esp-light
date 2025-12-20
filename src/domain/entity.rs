@@ -24,7 +24,7 @@ impl ColorMode {
 
 /// Represents the light state.
 #[derive(Debug, Clone)]
-pub(crate) struct LightState {
+pub struct LightState {
     pub power: bool,
     pub brightness: u8,
     pub color: (u8, u8, u8),
@@ -35,7 +35,7 @@ pub(crate) struct LightState {
 
 impl LightState {
     /// Create a new light state
-    pub(crate) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             power: true,
             brightness: 255,
