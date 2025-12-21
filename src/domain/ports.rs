@@ -1,14 +1,15 @@
+use crate::config::DeviceConfig;
 use crate::domain::dto::LightChangeIntent;
 use crate::domain::entity::LightState;
 
 /// Reader interface for the light state
-pub(crate) trait LightStateReader {
+pub trait LightStateReader {
     /// Get the current light state
     fn get_light_state(&self) -> Option<LightState>;
 }
 
 /// Applier interface for the light intent
-pub(crate) trait LightIntentApplier {
+pub trait LightIntentApplier {
     /// Apply a light change intent
     fn apply_intent(&mut self, intent: LightChangeIntent) -> Result<(), ()>;
 }
@@ -45,4 +46,18 @@ pub(crate) trait PersistentLightStateHandler: Sync + Send {
 pub trait OnBootHandler: Sync + Send {
     /// On boot
     fn on_boot(&self, stored_state: Option<LightState>);
+}
+
+pub trait PersistenceHandler {
+    /// Get the persistent data
+    fn get_persistent_data(&self) -> Option<(u8, LightState, DeviceConfig)>;
+
+    /// Set the persistent data
+    fn persist_light_state(&mut self, light_state: LightState) -> Option<()>;
+
+    /// Persist the device config
+    fn persist_device_config(&mut self, config: DeviceConfig) -> Option<()>;
+
+    /// Persist the boot count
+    fn persist_boot_count(&mut self, boot_count: u8) -> Option<()>;
 }

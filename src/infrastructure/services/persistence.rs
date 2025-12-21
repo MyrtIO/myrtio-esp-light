@@ -1,10 +1,10 @@
+use core::marker::PhantomData;
+
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, Receiver};
 
 use crate::domain::entity::LightState;
 use crate::domain::ports::PersistentLightStateUpdater;
-use crate::infrastructure::tasks::flash_actor::OTA_ACTIVE;
-use core::sync::atomic::Ordering;
 
 /// Type alias for the light state receiver
 pub(crate) type LightStateReceiver =
@@ -20,24 +20,20 @@ const LIGHT_STATE_CHANNEL_SIZE: usize = 4;
 pub(crate) static PERSISTENCE_CHANNEL: LightStateChannel = Channel::new();
 
 /// Service for persisting light state
+#[derive(Debug, Default)]
 pub struct LightStatePersistenceService<'a> {
-    _p: core::marker::PhantomData<&'a ()>,
+    _p: PhantomData<&'a ()>,
 }
 
 impl LightStatePersistenceService<'_> {
     pub fn new() -> Self {
-        Self {
-            _p: core::marker::PhantomData,
-        }
+        Self::default()
     }
 }
 
 impl PersistentLightStateUpdater for LightStatePersistenceService<'_> {
     /// Save the light state to the persistence channel
     fn update_persistent_light_state(&mut self, state: LightState) -> Result<(), ()> {
-        if OTA_ACTIVE.load(Ordering::Relaxed) {
-            return Err(());
-        }
         PERSISTENCE_CHANNEL.try_send(state).map_err(|_| ())
     }
 }

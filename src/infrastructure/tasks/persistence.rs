@@ -3,16 +3,15 @@ use embassy_time::{Duration, Timer};
 use esp_println::println;
 
 use crate::domain::entity::LightState;
-use crate::domain::ports::PersistentLightStateHandler;
-use crate::infrastructure::config;
+use crate::domain::ports::{PersistenceHandler};
+use crate::infrastructure::repositories::AppPersistentStorage;
 use crate::infrastructure::services::persistence::LightStateReceiver;
-use crate::infrastructure::types::LightStorageMutex;
 
-const PERSISTENCE_DELAY: Duration = Duration::from_millis(config::STORAGE.write_debounce_ms);
+const PERSISTENCE_DELAY: Duration = Duration::from_millis(5000);
 
 #[embassy_executor::task]
-pub(crate) async fn storage_persistence_task(
-    storage: &'static LightStorageMutex,
+pub async fn persistence_task(
+    mut storage: AppPersistentStorage,
     receiver: LightStateReceiver,
 ) {
     println!("persistence: starting persistence task");
@@ -34,9 +33,9 @@ pub(crate) async fn storage_persistence_task(
                     }
                     Either::Second(()) => {
                         if let Some(state) = pending_state {
-                            let storage_guard = storage.lock().await;
-                            let mut storage = storage_guard.borrow_mut();
-                            storage.save_persistent_light_state(state).await.expect("Failed to save light state to storage");
+                            storage
+                                .persist_light_state(state)
+                                .expect("error persisting light state");
                             pending_state = None;
                         }
                     }

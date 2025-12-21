@@ -5,7 +5,7 @@
 
 pub(crate) mod config;
 pub mod drivers;
-pub(crate) mod repositories;
+pub mod repositories;
 pub mod services;
 pub mod tasks;
 pub(crate) mod types;

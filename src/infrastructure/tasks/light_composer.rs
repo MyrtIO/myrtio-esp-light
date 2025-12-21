@@ -6,7 +6,7 @@ use esp_hal::peripherals::RMT;
 use myrtio_light_composer::color::rgb_from_u32;
 use myrtio_light_composer::effect::BrightnessEffectConfig;
 use myrtio_light_composer::{
-    CommandChannel, CommandSender, EffectProcessorConfig, LightEngine, LightEngineConfig, ModeId,
+    IntentChannel, IntentSender, EffectProcessorConfig, LightEngine, LightEngineConfig, ModeId,
     Rgb, TransitionTimings, ws2812_lut,
 };
 
@@ -14,7 +14,7 @@ use crate::infrastructure::config;
 use crate::infrastructure::drivers::EspLedDriver;
 use crate::infrastructure::types::LightDriver;
 
-static LIGHT_COMMAND_CHANNEL: CommandChannel = Channel::new();
+static LIGHT_INTENT_CHANNEL: IntentChannel = Channel::new();
 
 const LIGHT_COLOR_CORRECTION: Rgb = rgb_from_u32(config::LIGHT.color_correction);
 const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
@@ -41,7 +41,7 @@ const LIGHT_CONFIG: LightEngineConfig = LightEngineConfig {
 /// It receives commands from the command channel and updates the light state accordingly.
 #[embassy_executor::task]
 pub async fn light_composer_task(driver: LightDriver) {
-    let receiver = LIGHT_COMMAND_CHANNEL.receiver();
+    let receiver = LIGHT_INTENT_CHANNEL.receiver();
     let mut engine: LightEngine<LightDriver, { config::LIGHT.led_count }> =
         LightEngine::new(driver, receiver, &LIGHT_CONFIG);
 
@@ -50,11 +50,11 @@ pub async fn light_composer_task(driver: LightDriver) {
     }
 }
 
-pub fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, CommandSender)
+pub fn init_light_composer<O>(rmt: RMT<'static>, pin: O) -> (LightDriver, IntentSender)
 where
     O: PeripheralOutput<'static>,
 {
     let driver = EspLedDriver::new(rmt, pin);
 
-    (driver, LIGHT_COMMAND_CHANNEL.sender())
+    (driver, LIGHT_INTENT_CHANNEL.sender())
 }

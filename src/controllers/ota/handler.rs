@@ -5,8 +5,6 @@
 
 use esp_println::println;
 
-use crate::infrastructure::tasks::ota::OtaInvite;
-
 /// OTA Controller
 ///
 /// Provides a high-level API for firmware updates, coordinating between
@@ -19,9 +17,9 @@ impl OtaController {
         Self {}
     }
 
-    /// Start a firmware update from an OTA invite
-    pub fn on_ota_start(&self, invite: &OtaInvite) {
-        println!("ota: starting update, size={} bytes", invite.size);
+    /// Start a firmware update
+    pub fn on_ota_start(&self, expected_size: u32) {
+        println!("ota: starting update, size={} bytes", expected_size);
     }
 
     /// Got a chunk of firmware data
@@ -33,7 +31,6 @@ impl OtaController {
     /// Finish the firmware update and trigger reboot
     pub fn on_ota_complete(&self) {
         println!("ota: update successful, rebooting...");
-        // ota_reboot();
     }
 
     /// Abort the current update

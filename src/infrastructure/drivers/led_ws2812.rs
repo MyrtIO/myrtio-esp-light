@@ -9,12 +9,15 @@ use myrtio_light_composer::{LedDriver, Rgb};
 
 use crate::infrastructure::config;
 
+pub(crate) const MAX_LED_COUNT: usize = 128;
+
 /// ESP-specific LED driver using RMT peripheral
 ///
 /// This driver uses the ESP32's RMT (Remote Control) peripheral
 /// to generate the precise timing signals required by WS2812B LEDs.
 pub struct EspLedDriver<'a> {
-    adapter: SmartLedsAdapter<'a, { buffer_size(config::LIGHT.led_count) }>,
+    adapter: SmartLedsAdapter<'a, { buffer_size(MAX_LED_COUNT) }>,
+    skip_leds: usize,
 }
 
 impl<'a> EspLedDriver<'a> {
@@ -31,10 +34,22 @@ impl<'a> EspLedDriver<'a> {
 
         // Safety: This is a static buffer that lives for the entire program
         // We use make_static! to ensure the buffer has 'static lifetime
-        let rmt_buffer = make_static!(smart_led_buffer!(config::LIGHT.led_count));
+        let rmt_buffer = make_static!(smart_led_buffer!(MAX_LED_COUNT));
         let adapter = SmartLedsAdapter::new(rmt.channel0, pin, rmt_buffer);
 
-        Self { adapter }
+        Self {
+            adapter,
+            skip_leds: 0,
+        }
+    }
+
+    pub(crate) fn new_with_skip<O>(rmt: RMT<'a>, pin: O, skip_leds: usize) -> Self
+    where
+        O: PeripheralOutput<'a>,
+    {
+        let mut driver = Self::new(rmt, pin);
+        driver.skip_leds = skip_leds;
+        driver
     }
 }
 

@@ -1,3 +1,3 @@
-mod persistent_light_state;
+mod persistent_storage;
 
-pub(crate) use persistent_light_state::{LightNorFlashStorage, LightStorageDriver};
+pub use persistent_storage::{AppPersistentData, AppPersistentStorage};

@@ -2,7 +2,7 @@ use core::str::FromStr;
 
 use heapless::String;
 
-use embassy_net::{DhcpConfig, IpAddress, Runner, Stack, StackResources, dns::DnsQueryType};
+use embassy_net::{DhcpConfig, IpAddress, Ipv4Address, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4, dns::DnsQueryType};
 use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::WIFI;
 use esp_hal::rng::Rng;
@@ -13,6 +13,11 @@ use static_cell::make_static;
 use crate::infrastructure::config;
 
 const MAX_CONNECTIONS: usize = 6;
+
+/// AP mode static IP configuration
+pub const AP_IP_ADDRESS: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
+const AP_GATEWAY: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
+const AP_PREFIX_LEN: u8 = 24;
 
 pub fn init_network_stack(
     wifi_device: WIFI<'static>,
@@ -38,13 +43,44 @@ pub fn init_network_stack(
     (stack, runner, controller)
 }
 
+/// Initialize the network stack for AP (Access Point) mode.
+/// 
+/// Uses a static IP configuration (192.168.4.1/24) suitable for a captive portal.
+/// Returns the network stack, runner, and WiFi controller.
+pub fn init_network_stack_ap(
+    wifi_device: WIFI<'static>,
+) -> (
+    Stack<'static>,
+    Runner<'static, WifiDevice<'static>>,
+    WifiController<'static>,
+) {
+    let esp_radio_ctrl = &*make_static!(esp_radio::init().unwrap());
+    let wifi_config = WifiConfig::default();
+    let (controller, interfaces) =
+        esp_radio::wifi::new(esp_radio_ctrl, wifi_device, wifi_config).unwrap();
+
+    // Static IP configuration for AP mode
+    let static_config = StaticConfigV4 {
+        address: Ipv4Cidr::new(AP_IP_ADDRESS, AP_PREFIX_LEN),
+        gateway: Some(AP_GATEWAY),
+        dns_servers: Default::default(),
+    };
+    let net_config = embassy_net::Config::ipv4_static(static_config);
+
+    let network_resources = make_static!(StackResources::<MAX_CONNECTIONS>::new());
+    let (stack, runner) =
+        embassy_net::new(interfaces.ap, net_config, network_resources, get_seed());
+
+    (stack, runner, controller)
+}
+
 fn get_seed() -> u64 {
     let rng = Rng::new();
     u64::from(rng.random()) << 32 | u64::from(rng.random())
 }
 
 /// Wait for the network link to become active
-pub async fn wait_for_link(stack: Stack<'_>) {
+async fn wait_for_link(stack: Stack<'_>) {
     loop {
         if stack.is_link_up() {
             break;
@@ -55,7 +91,7 @@ pub async fn wait_for_link(stack: Stack<'_>) {
 
 /// Wait for the network stack to obtain an IPv4 address via DHCP
 /// Returns the obtained IPv4 configuration
-pub async fn wait_for_ip(stack: Stack<'_>) -> embassy_net::StaticConfigV4 {
+async fn wait_for_ip(stack: Stack<'_>) -> embassy_net::StaticConfigV4 {
     loop {
         if let Some(config) = stack.config_v4() {
             return config;

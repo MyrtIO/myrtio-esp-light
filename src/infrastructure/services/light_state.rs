@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicU8, AtomicU16, Ordering};
 
-use myrtio_light_composer::{Command, CommandSender, ModeId, Rgb};
+use myrtio_light_composer::{IntentSender, LightIntent, ModeId, Rgb};
 
 use crate::domain::dto::LightChangeIntent;
 use crate::domain::entity::{ColorMode, LightState};
@@ -66,16 +66,16 @@ impl AtomicLightState {
 static LIGHT_STATE: AtomicLightState = AtomicLightState::from_state(&LightState::new());
 
 pub struct LightStateService {
-    cmd_sender: CommandSender,
+    intents: IntentSender,
 }
 
 impl LightStateService {
-    pub fn new(cmd_sender: CommandSender) -> Self {
-        Self { cmd_sender }
+    pub fn new(intents: IntentSender) -> Self {
+        Self { intents }
     }
 
-    fn send_command(&self, command: Command) -> Result<(), ()> {
-        self.cmd_sender.try_send(command).map_err(|_| ())
+    fn send(&self, intent: LightIntent) -> Result<(), ()> {
+        self.intents.try_send(intent).map_err(|_| ())
     }
 }
 
@@ -88,39 +88,35 @@ impl LightStateReader for LightStateService {
 impl LightIntentApplier for LightStateService {
     fn apply_intent(&mut self, intent: LightChangeIntent) -> Result<(), ()> {
         let mut state = LIGHT_STATE.get();
-
         if let Some(mode_id_raw) = intent.mode_id {
-            let mode_id = ModeId::from_raw(mode_id_raw).expect("Invalid mode ID");
             state.mode_id = mode_id_raw;
-            self.send_command(Command::SwitchMode(mode_id))?;
         }
-
         if let Some(brightness) = intent.brightness {
             state.brightness = brightness;
-            self.send_command(Command::SetBrightness(brightness))?;
         }
-
         if let Some((r, g, b)) = intent.color {
             state.color = (r, g, b);
             state.color_mode = ColorMode::Rgb;
-            self.send_command(Command::SetColor(Rgb { r, g, b }))?;
         } else if let Some(color_temp) = intent.color_temp {
             state.color_temp = color_temp;
             state.color_mode = ColorMode::Temperature;
-            self.send_command(Command::SetColorTemperature(color_temp))?;
         }
 
-        if intent.is_off() {
-            state.power = false;
-            self.send_command(Command::PowerOff)?;
-        } else if intent.implies_on() && !state.power {
-            state.power = true;
-            self.send_command(Command::PowerOn)?;
+        if let Some(power) = intent.power {
+            state.power = power;
         }
+
+        let composer_intent = LightIntent {
+            power: intent.power,
+            brightness: intent.brightness,
+            color: intent.color.map(|(r, g, b)| Rgb { r, g, b }),
+            color_temperature: intent.color_temp,
+            mode_id: intent.mode_id.and_then(ModeId::from_raw),
+        };
 
         LIGHT_STATE.set(&state);
 
-        Ok(())
+        self.send(composer_intent)
     }
 }
 

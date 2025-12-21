@@ -7,11 +7,15 @@ edition = "2024"
 rust-version = "1.90"
 
 [[bin]]
-name = "myrtio-esp-light"
+name = "myrtio-esp-light-app"
 path = "src/bin/app.rs"
 
+[[bin]]
+name = "myrtio-esp-light-factory"
+path = "src/bin/factory.rs"
+
 [dependencies]
-myrtio-light-composer = "0.1.0"
+myrtio-light-composer = "0.2.0"
 myrtio-mqtt = "0.1.0"
 myrtio-mqtt-homeassistant = "0.1.1"
 # myrtio-core = { path = "crates/myrtio-core" }
@@ -53,6 +57,8 @@ heapless = "0.8"
 smart-leds = "0.4.0"
 
 serde = { version = "1.0.228", default-features = false }
+
+bytemuck = { version = "1.24.0", features = ["min_const_generics", "derive"] }
 
 [build-dependencies]
 dotenv-build = "0.1.1"

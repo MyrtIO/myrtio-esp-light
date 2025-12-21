@@ -7,11 +7,15 @@ use embassy_time::Duration;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
+use esp_storage::FlashStorage;
+use static_cell::StaticCell;
 
 use myrtio_esp_light::app::LightUsecases;
-use myrtio_esp_light::controllers::{OtaController, init_controllers};
-use myrtio_esp_light::domain::ports::OnBootHandler;
+use myrtio_esp_light::config::LIGHT_STATE_PARTITION_OFFSET;
+use myrtio_esp_light::controllers::init_controllers;
+use myrtio_esp_light::domain::ports::{OnBootHandler, PersistenceHandler};
 use myrtio_esp_light::infrastructure::drivers::{init_network_stack, wait_for_connection};
+use myrtio_esp_light::infrastructure::repositories::AppPersistentStorage;
 use myrtio_esp_light::infrastructure::services::{
     LightStatePersistenceService, LightStateService, get_persistence_receiver,
 };
@@ -19,11 +23,12 @@ use myrtio_esp_light::infrastructure::tasks::light_composer::{
     init_light_composer, light_composer_task,
 };
 use myrtio_esp_light::infrastructure::tasks::{
-    flash_actor_task, get_ota_sender, mqtt_runtime_task, network_runner_task, ota_invite_task,
-    wait_initial_state, wifi_connection_task,
+    mqtt_runtime_task, network_runner_task, persistence_task, wifi_connection_task,
 };
 
 esp_bootloader_esp_idf::esp_app_desc!();
+
+static FLASH_STORAGE: StaticCell<FlashStorage<'static>> = StaticCell::new();
 
 // static_cell::make_static! in main causes a compiler error
 macro_rules! mk_static {
@@ -53,21 +58,22 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
-    let receiver = get_persistence_receiver();
-    spawner
-        .spawn(flash_actor_task(peripherals.FLASH, receiver))
-        .ok();
+    // Initialize flash storage and get initial state
+    let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
+    let flash_ptr = flash as *mut FlashStorage<'static>;
+    let storage = AppPersistentStorage::new(flash_ptr, LIGHT_STATE_PARTITION_OFFSET);
+    let initial_state = storage.get_persistent_data().map(|(_, state, _)| state);
 
-    let initial_state = wait_initial_state().await;
+    // Spawn persistence task
+    let receiver = get_persistence_receiver();
+    spawner.spawn(persistence_task(storage, receiver)).ok();
+
     let persistence_service = LightStatePersistenceService::new();
 
     // Initialize light composer and spawn its task
     let (driver, cmd_sender) =
         init_light_composer(peripherals.RMT, myrtio_esp_light::led_gpio!(peripherals));
     spawner.spawn(light_composer_task(driver)).ok();
-
-    // Create OTA controller with a cloned command sender
-    let ota_controller = mk_static!(OtaController, OtaController::new());
 
     // Initialize usecases and controllers
     let state_service = LightStateService::new(cmd_sender);
@@ -86,12 +92,8 @@ async fn main(spawner: Spawner) -> ! {
     // Wait for network connection before starting network-dependent tasks
     wait_for_connection(stack).await;
 
-    // Spawn MQTT and OTA tasks
+    // Spawn MQTT task
     spawner.spawn(mqtt_runtime_task(stack, mqtt_module)).ok();
-    let ota_sender = get_ota_sender();
-    spawner
-        .spawn(ota_invite_task(stack, ota_controller, ota_sender))
-        .ok();
 
     loop {
         embassy_time::Timer::after(Duration::from_secs(5)).await;

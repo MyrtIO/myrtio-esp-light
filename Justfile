@@ -1,11 +1,39 @@
 CARGO_CONFIG := 'unstable.build-std = ["alloc", "core"]'
-PARTITION_TABLE := 'crates/myrtio-firmware/light/partitions.csv'
+PARTITION_TABLE := 'partitions.csv'
 
-build *ARGS:
+build-app *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
 
     cargo build \
+        --bin myrtio-esp-light-app \
+        --config '{{CARGO_CONFIG}}' \
+        {{ARGS}}
+
+build-ota *ARGS:
+    #!/bin/bash
+    just build-app --release
+
+    release_path="target/xtensa-esp32-none-elf/release/myrtio-esp-light-app"
+    ota_path="$release_path.ota.bin"
+
+    echo "Creating OTA image..."
+    espflash save-image \
+        --chip esp32 \
+        --partition-table={{PARTITION_TABLE}} \
+        $release_path \
+        $ota_path
+
+
+build-factory *ARGS:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+
+    just build-factory-page
+
+    cargo build \
+        --release \
+        --bin myrtio-esp-light-factory \
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
@@ -13,35 +41,13 @@ run *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
 
+    just build-factory-page
+
     cargo run \
+        --bin myrtio-esp-light-factory \
+        --release \
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
-
-ota device="" host="" chip="esp32":
-    #!/bin/bash
-    if test -z "{{device}}"; then
-        echo "Device is required"
-        exit 1
-    fi
-    if test -z "{{host}}"; then
-        echo "Host is required"
-        exit 1
-    fi
-    echo "Building firmware..."
-    just build
-
-    release_path="target/xtensa-esp32-none-elf/release/myrtio-light-firmware"
-    ota_path="$release_path.ota.bin"
-
-    echo "Creating OTA image..."
-    export ota_dir="target/ota/{{device}}"
-    espflash save-image \
-        --chip {{chip}} \
-        --partition-table={{PARTITION_TABLE}} \
-        $release_path \
-        $ota_path
-    python3 scripts/ota.py --host {{host}} --image $ota_path
-
 
 lint *ARGS:
     #!/bin/bash
@@ -55,25 +61,5 @@ lint-fix *ARGS:
 
     cargo clippy --fix --allow-dirty {{ARGS}}
 
-# Test the myrtio-macros crate (requires separate target dir due to workspace esp config)
-test package="":
-    cargo test --package unit-tests --target aarch64-apple-darwin
-
-# Build and OTA flash the rs1 device
-ota-rs1:
-    #!/bin/bash
-    source $HOME/export-esp.sh
-    set -e
-
-    echo "Building firmware..."
-    cargo --config '{{CARGO_CONFIG}}' build --bin myrtio-light-firmware --release --features rs1
-
-    echo "Creating OTA image..."
-    mkdir -p target/ota
-    espflash save-image --chip esp32 \
-        target/xtensa-esp32-none-elf/release/myrtio-light-firmware \
-        target/ota/myrtio-light-firmware-rs1.bin
-
-    echo "Starting OTA update..."
-    python3 scripts/ota.py --host myrtio-rs1.lan --image target/ota/myrtio-light-firmware-rs1.bin
-
+build-factory-page:
+    . scripts/build-factory-page.sh

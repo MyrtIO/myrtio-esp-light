@@ -1,6 +1,8 @@
+use crate::config::DeviceConfig;
+
 /// Color mode
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum ColorMode {
+pub enum ColorMode {
     Rgb,
     Temperature,
 }
