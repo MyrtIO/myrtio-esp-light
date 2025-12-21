@@ -23,7 +23,7 @@ struct PersistentLightState {
 impl From<LightState> for PersistentLightState {
     fn from(state: LightState) -> Self {
         Self {
-            power: if state.power { 1 } else { 0 },
+            power: state.power.into(),
             brightness: state.brightness,
             mode_id: state.mode_id,
             color_mode: state.color_mode.as_u8(),
@@ -115,7 +115,7 @@ struct PersistentDeviceConfig {
 impl From<DeviceConfig> for PersistentDeviceConfig {
     fn from(config: DeviceConfig) -> Self {
         Self {
-            light: config.light.into(),
+            light: config.light,
             wifi: config.wifi.into(),
             mqtt: config.mqtt.into(),
             _padding: [0; 2],
@@ -126,7 +126,7 @@ impl From<DeviceConfig> for PersistentDeviceConfig {
 impl From<&PersistentDeviceConfig> for DeviceConfig {
     fn from(config: &PersistentDeviceConfig) -> Self {
         Self {
-            light: config.light.into(),
+            light: config.light,
             wifi: (&config.wifi).into(),
             mqtt: (&config.mqtt).into(),
         }
@@ -145,10 +145,6 @@ pub struct AppPersistentData {
 /// Concrete storage driver used by the firmware.
 pub type AppPersistentStorage = EspPersistentStorage<AppPersistentData>;
 
-// /// Safety: This is a single-owner assumption.
-// unsafe impl Send for AppPersistentStorage {}
-// unsafe impl Sync for AppPersistentStorage {}
-
 impl AppPersistentStorage {
     fn get_raw_data(&self) -> Option<AppPersistentData> {
         let Ok(data) = self.load().map_err(|_| ()) else {
@@ -157,8 +153,8 @@ impl AppPersistentStorage {
         Some(data)
     }
 
-    fn save_raw_data(&self, data: AppPersistentData) -> Option<()> {
-        self.save(&data).map_err(|_| ()).ok()
+    fn save_raw_data(&self, data: &AppPersistentData) -> Option<()> {
+        self.save(data).map_err(|_| ()).ok()
     }
 }
 
@@ -173,21 +169,27 @@ impl PersistenceHandler for AppPersistentStorage {
     }
 
     fn persist_light_state(&mut self, light_state: LightState) -> Option<()> {
-        let mut data = self.get_raw_data()?;
+        let mut data = self
+            .get_raw_data()
+            .unwrap_or_else(AppPersistentData::zeroed);
         data.light_state = light_state.into();
-        self.save_raw_data(data)
+        self.save_raw_data(&data)
     }
 
     fn persist_device_config(&mut self, config: DeviceConfig) -> Option<()> {
-        let mut data = self.get_raw_data()?;
+        let mut data = self
+            .get_raw_data()
+            .unwrap_or_else(AppPersistentData::zeroed);
         data.config = config.into();
-        self.save_raw_data(data)
+        self.save_raw_data(&data)
     }
 
     fn persist_boot_count(&mut self, boot_count: u8) -> Option<()> {
-        let mut data = self.get_raw_data()?;
+        let mut data = self
+            .get_raw_data()
+            .unwrap_or_else(AppPersistentData::zeroed);
         data.reboot_count = boot_count;
-        self.save_raw_data(data)
+        self.save_raw_data(&data)
     }
 }
 
@@ -199,7 +201,7 @@ fn parse_padded_string<const N: usize>(bytes: &[u8]) -> String<N> {
     String::from_str(s).unwrap()
 }
 
-/// Convert a heapless::String to a fixed-size byte array, padding with zeros
+/// Convert a [`heapless::String`] to a fixed-size byte array, padding with zeros
 fn string_to_array<const N: usize>(s: &String<N>) -> [u8; N] {
     let mut arr = [0u8; N];
     let bytes = s.as_bytes();

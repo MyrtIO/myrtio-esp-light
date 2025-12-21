@@ -4,14 +4,22 @@
 //! It creates and configures the `HaModule` with the appropriate entities and callbacks.
 
 use embassy_time::Duration;
-use myrtio_mqtt_homeassistant::{HaModule, LightCommand, LightRegistration, LightState};
+use heapless::String;
 use myrtio_light_composer::ModeId;
 use myrtio_mqtt::runtime::MqttModule;
+use myrtio_mqtt_homeassistant::{
+    ColorMode, Device, HaModule, LightCommand, LightEntity, LightRegistration, LightState,
+};
 use static_cell::StaticCell;
 
+use crate::config::{
+    BUILD_VERSION, DEVICE_MANUFACTURER, DEVICE_MODEL, TEMPERATURE_MAX_KELVIN,
+    TEMPERATURE_MIN_KELVIN, hardware_id,
+};
 use crate::controllers::dependencies::LIGHT_USECASES;
-use crate::controllers::mqtt::device::LIGHT_ENTITY;
+// use crate::controllers::mqtt::device::LIGHT_ENTITY;
 use crate::domain::dto::LightChangeIntent;
+use crate::mk_static;
 
 const MAX_LIGHTS: usize = 4;
 const MAX_NUMBERS: usize = 0;
@@ -77,12 +85,57 @@ fn handle_light_command(cmd: &LightCommand) {
     });
 }
 
+fn format_device_id(hardware_id: u32) -> String<32> {
+    use core::fmt::Write;
+    let mut device_id = String::new();
+    let _ = write!(device_id, "myrtio_light_{:04X}", hardware_id);
+    device_id
+}
+
+fn format_device_name(hardware_id: u32) -> String<32> {
+    use core::fmt::Write;
+    let mut device_name = String::new();
+    let _ = write!(device_name, "MyrtIO Светильник {:04X}", hardware_id);
+    device_name
+}
+
 /// Initialize and return the Home Assistant MQTT module as a trait object.
 pub(crate) fn init_home_assistant_module() -> &'static mut dyn MqttModule {
+    let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
+    let device_name = mk_static!(String<32>, format_device_name(hardware_id()));
+
+    let device = mk_static!(
+        Device<'static>,
+        Device::builder()
+            .id(device_id.as_str())
+            .name(device_name.as_str())
+            .manufacturer(Some(DEVICE_MANUFACTURER))
+            .model(Some(DEVICE_MODEL))
+            .sw_version(Some(BUILD_VERSION))
+            .build()
+    );
+    let supported_effects = mk_static!(
+        [&str; 2],
+        [ModeId::Static.as_str(), ModeId::Rainbow.as_str()]
+    );
+
+    let light_entity = LightEntity::builder()
+        .id("led_strip")
+        .name("LED Strip")
+        .device(device)
+        .icon(Some("mdi:led-strip"))
+        .brightness(true)
+        .min_kelvin(Some(TEMPERATURE_MIN_KELVIN))
+        .max_kelvin(Some(TEMPERATURE_MAX_KELVIN))
+        .color_modes(&[ColorMode::Rgb, ColorMode::ColorTemp])
+        .effects(Some(supported_effects.as_slice()))
+        .optimistic(false)
+        .build();
+
     let mut module = HomeAssistantModule::new(Duration::from_secs(30));
 
     let light_registration = LightRegistration {
-        entity: LIGHT_ENTITY.clone(),
+        entity: light_entity,
         provide_state: get_light_state,
         on_command: handle_light_command,
     };

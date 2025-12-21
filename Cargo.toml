@@ -15,9 +15,10 @@ name = "myrtio-esp-light-factory"
 path = "src/bin/factory.rs"
 
 [dependencies]
-myrtio-light-composer = "0.2.0"
+myrtio-light-composer = "0.3.0"
 myrtio-mqtt = "0.1.0"
 myrtio-mqtt-homeassistant = "0.1.1"
+myrtio-light-factory-page = { path = "factory-page" }
 # myrtio-core = { path = "crates/myrtio-core" }
 # myrtio-macros = { path = "crates/myrtio-macros" }
 

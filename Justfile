@@ -29,8 +29,6 @@ build-factory *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
 
-    just build-factory-page
-
     cargo build \
         --release \
         --bin myrtio-esp-light-factory \
@@ -40,8 +38,6 @@ build-factory *ARGS:
 run *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
-
-    just build-factory-page
 
     cargo run \
         --bin myrtio-esp-light-factory \
@@ -60,6 +56,3 @@ lint-fix *ARGS:
     source $HOME/export-esp.sh
 
     cargo clippy --fix --allow-dirty {{ARGS}}
-
-build-factory-page:
-    . scripts/build-factory-page.sh

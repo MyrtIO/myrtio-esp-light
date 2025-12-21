@@ -64,26 +64,6 @@ impl LightChangeIntent {
         self.mode_id = Some(effect_id);
         self
     }
-
-    /// Check if this intent requests turning off
-    pub(crate) fn is_off(&self) -> bool {
-        self.power == Some(false)
-    }
-
-    /// Check if this intent requests turning on
-    pub(crate) fn is_on(&self) -> bool {
-        self.power == Some(true)
-    }
-
-    /// Check if this intent implies the light should be on
-    /// (explicit on, or brightness/color/effect change)
-    pub(crate) fn implies_on(&self) -> bool {
-        self.is_on()
-            || self.brightness.is_some()
-            || self.color.is_some()
-            || self.color_temp.is_some()
-            || self.mode_id.is_some()
-    }
 }
 
 impl From<LightState> for LightChangeIntent {

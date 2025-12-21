@@ -33,14 +33,14 @@ pub(crate) trait PersistentLightStateUpdater {
     fn update_persistent_light_state(&mut self, state: LightState) -> Result<(), ()>;
 }
 
-/// Trait for the light usecases persistence handler
-pub(crate) trait PersistentLightStateHandler: Sync + Send {
-    /// Get the persistent light state
-    async fn get_persistent_light_state(&self) -> Option<LightState>;
+// /// Trait for the light usecases persistence handler
+// pub(crate) trait PersistentLightStateHandler: Sync + Send {
+//     /// Get the persistent light state
+//     async fn get_persistent_light_state(&self) -> Option<LightState>;
 
-    /// Set the current light state to the persistent storage
-    async fn save_persistent_light_state(&mut self, state: LightState) -> Result<(), ()>;
-}
+//     /// Set the current light state to the persistent storage
+//     async fn save_persistent_light_state(&mut self, state: LightState) -> Result<(), ()>;
+// }
 
 /// Trait for the boot controller
 pub trait OnBootHandler: Sync + Send {

@@ -1,4 +1,3 @@
-mod device;
 mod homeassistant_module;
 
 pub(crate) use homeassistant_module::init_home_assistant_module;

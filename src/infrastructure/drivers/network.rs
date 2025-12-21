@@ -1,8 +1,9 @@
-use core::str::FromStr;
-
 use heapless::String;
 
-use embassy_net::{DhcpConfig, IpAddress, Ipv4Address, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4, dns::DnsQueryType};
+use embassy_net::{
+    DhcpConfig, IpAddress, Ipv4Address, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4,
+    dns::DnsQueryType,
+};
 use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::WIFI;
 use esp_hal::rng::Rng;
@@ -10,7 +11,7 @@ use esp_radio::wifi::{Config as WifiConfig, WifiController, WifiDevice};
 
 use static_cell::make_static;
 
-use crate::infrastructure::config;
+use crate::config::hardware_id;
 
 const MAX_CONNECTIONS: usize = 6;
 
@@ -18,6 +19,13 @@ const MAX_CONNECTIONS: usize = 6;
 pub const AP_IP_ADDRESS: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
 const AP_GATEWAY: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
 const AP_PREFIX_LEN: u8 = 24;
+
+fn format_hostname(hardware_id: u32) -> String<32> {
+    use core::fmt::Write;
+    let mut hostname = String::<32>::new();
+    let _ = write!(hostname, "MyrtIO Light {:04X}", hardware_id);
+    hostname
+}
 
 pub fn init_network_stack(
     wifi_device: WIFI<'static>,
@@ -31,8 +39,7 @@ pub fn init_network_stack(
     let (controller, interfaces) =
         esp_radio::wifi::new(esp_radio_ctrl, wifi_device, wifi_config).unwrap();
     let mut dhcp_config = DhcpConfig::default();
-    let hostname = String::from_str(config::DEVICE.hostname).expect("Invalid hostname");
-    dhcp_config.hostname = Some(hostname);
+    dhcp_config.hostname = Some(format_hostname(hardware_id()));
 
     let net_config = embassy_net::Config::dhcpv4(dhcp_config);
 
@@ -44,7 +51,7 @@ pub fn init_network_stack(
 }
 
 /// Initialize the network stack for AP (Access Point) mode.
-/// 
+///
 /// Uses a static IP configuration (192.168.4.1/24) suitable for a captive portal.
 /// Returns the network stack, runner, and WiFi controller.
 pub fn init_network_stack_ap(

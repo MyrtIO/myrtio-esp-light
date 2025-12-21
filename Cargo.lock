@@ -1243,6 +1243,7 @@ dependencies = [
  "esp-storage",
  "heapless 0.8.0",
  "myrtio-light-composer",
+ "myrtio-light-factory-page",
  "myrtio-mqtt",
  "myrtio-mqtt-homeassistant",
  "serde",
@@ -1252,9 +1253,9 @@ dependencies = [
 
 [[package]]
 name = "myrtio-light-composer"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cc616656d1556b594191e9d9684241f1585849d44001df5dc57cf165f96fb60"
+checksum = "98b7ac93d9c321042e06d262daec3917b8ad7dc6780433a79343ef6e5888ece9"
 dependencies = [
  "embassy-sync 0.7.2",
  "embassy-time",
@@ -1262,6 +1263,10 @@ dependencies = [
  "libm",
  "smart-leds",
 ]
+
+[[package]]
+name = "myrtio-light-factory-page"
+version = "0.0.0"
 
 [[package]]
 name = "myrtio-mqtt"

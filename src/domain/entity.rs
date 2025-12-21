@@ -1,5 +1,3 @@
-use crate::config::DeviceConfig;
-
 /// Color mode
 #[derive(Debug, Clone, Copy)]
 pub enum ColorMode {

@@ -22,9 +22,10 @@ use crate::domain::ports::PersistenceHandler;
 use crate::infrastructure::repositories::AppPersistentStorage;
 
 const HTTP_PORT: u16 = 80;
-const RX_BUFFER_SIZE: usize = 2048;
-const TX_BUFFER_SIZE: usize = 2048;
+const RX_BUFFER_SIZE: usize = 4096;
+const TX_BUFFER_SIZE: usize = 4096;
 const CHUNK_SIZE: usize = 1024;
+const HEADER_BUFFER_SIZE: usize = 2048;
 
 /// Factory HTTP server task
 ///
@@ -66,10 +67,11 @@ async fn handle_connection<'a>(
     socket: &mut TcpSocket<'a>,
     flash: *mut FlashStorage<'static>,
 ) -> Result<(), HttpError> {
-    let mut header_buf = [0u8; 1024];
+    let mut header_buf = [0u8; HEADER_BUFFER_SIZE];
     let mut header_len = 0;
 
     // Read headers
+    let mut header_end = None;
     loop {
         let n = socket.read(&mut header_buf[header_len..]).await.map_err(|_| HttpError::Read)?;
         if n == 0 {
@@ -78,7 +80,8 @@ async fn handle_connection<'a>(
         header_len += n;
 
         // Check for end of headers
-        if header_buf[..header_len].windows(4).any(|w| w == b"\r\n\r\n") {
+        if let Some(pos) = header_buf[..header_len].windows(4).position(|w| w == b"\r\n\r\n") {
+            header_end = Some(pos + 4);
             break;
         }
         if header_len >= header_buf.len() {
@@ -86,15 +89,29 @@ async fn handle_connection<'a>(
         }
     }
 
-    let header_str = str::from_utf8(&header_buf[..header_len]).map_err(|_| HttpError::Parse)?;
+    // Only parse the header portion as UTF-8, not the body data
+    let header_end_pos = header_end.unwrap_or(header_len);
+    let header_str = str::from_utf8(&header_buf[..header_end_pos]).map_err(|e| {
+        println!("factory_http: UTF-8 parse error at byte {}, header_end={}", e.valid_up_to(), header_end_pos);
+        HttpError::Parse
+    })?;
 
     // Parse request line
-    let first_line = header_str.lines().next().ok_or(HttpError::Parse)?;
+    let first_line = header_str.lines().next().ok_or_else(|| {
+        println!("factory_http: no lines in header");
+        HttpError::Parse
+    })?;
     let mut parts = first_line.split_whitespace();
-    let method = parts.next().ok_or(HttpError::Parse)?;
-    let path = parts.next().ok_or(HttpError::Parse)?;
+    let method = parts.next().ok_or_else(|| {
+        println!("factory_http: no method in request line: {:?}", first_line);
+        HttpError::Parse
+    })?;
+    let path = parts.next().ok_or_else(|| {
+        println!("factory_http: no path in request line: {:?}", first_line);
+        HttpError::Parse
+    })?;
 
-    println!("factory_http: {} {}", method, path);
+    println!("factory_http: {} {} (header_len={})", method, path, header_len);
 
     match (method, path) {
         ("GET", "/") => serve_html(socket).await,
@@ -106,8 +123,8 @@ async fn handle_connection<'a>(
 }
 
 async fn serve_html<'a>(socket: &mut TcpSocket<'a>) -> Result<(), HttpError> {
-    const HTML: &[u8] = include_bytes!("../../../assets/factory_page.html.min.gz");
-    
+    const HTML: &[u8] = myrtio_light_factory_page::FACTORY_PAGE_HTML_GZ;
+
     let mut header = heapless::String::<256>::new();
     let _ = write!(
         header,
@@ -155,15 +172,17 @@ async fn handle_config_post<'a>(
     header: &[u8],
     flash: *mut FlashStorage<'static>,
 ) -> Result<(), HttpError> {
-    // Get content length
-    let header_str = str::from_utf8(header).map_err(|_| HttpError::Parse)?;
-    let content_length = parse_content_length(header_str).unwrap_or(0);
-
-    // Find body start
-    let body_start = header.windows(4)
+    // Find where headers end
+    let header_end = header.windows(4)
         .position(|w| w == b"\r\n\r\n")
         .map(|p| p + 4)
         .unwrap_or(header.len());
+    
+    // Only parse header portion as UTF-8
+    let header_str = str::from_utf8(&header[..header_end]).map_err(|_| HttpError::Parse)?;
+    let content_length = parse_content_length(header_str).unwrap_or(0);
+
+    let body_start = header_end;
 
     let mut body = heapless::Vec::<u8, 512>::new();
     
@@ -213,16 +232,25 @@ async fn handle_ota_post<'a>(
     header: &[u8],
     flash: *mut FlashStorage<'static>,
 ) -> Result<(), HttpError> {
-    let header_str = str::from_utf8(header).map_err(|_| HttpError::Parse)?;
-    let content_length = parse_content_length(header_str).ok_or(HttpError::Parse)?;
-
-    println!("factory_http: OTA upload, size={} bytes", content_length);
-
-    // Find body start
-    let body_start = header.windows(4)
+    // Find where headers end (before binary body data)
+    let header_end = header.windows(4)
         .position(|w| w == b"\r\n\r\n")
         .map(|p| p + 4)
         .unwrap_or(header.len());
+    
+    // Only parse the header portion as UTF-8
+    let header_str = str::from_utf8(&header[..header_end]).map_err(|e| {
+        println!("factory_http: OTA header UTF-8 error at byte {}", e.valid_up_to());
+        HttpError::Parse
+    })?;
+    let content_length = parse_content_length(header_str).ok_or_else(|| {
+        println!("factory_http: OTA missing Content-Length");
+        HttpError::Parse
+    })?;
+
+    println!("factory_http: OTA upload, size={} bytes", content_length);
+
+    let body_start = header_end;
 
     // Initialize OTA updater
     let flash_ref = unsafe { &mut *flash };

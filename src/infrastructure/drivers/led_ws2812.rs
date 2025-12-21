@@ -7,8 +7,6 @@ use smart_leds::SmartLedsWrite;
 
 use myrtio_light_composer::{LedDriver, Rgb};
 
-use crate::infrastructure::config;
-
 pub(crate) const MAX_LED_COUNT: usize = 128;
 
 /// ESP-specific LED driver using RMT peripheral
@@ -17,7 +15,6 @@ pub(crate) const MAX_LED_COUNT: usize = 128;
 /// to generate the precise timing signals required by WS2812B LEDs.
 pub struct EspLedDriver<'a> {
     adapter: SmartLedsAdapter<'a, { buffer_size(MAX_LED_COUNT) }>,
-    skip_leds: usize,
 }
 
 impl<'a> EspLedDriver<'a> {
@@ -37,36 +34,14 @@ impl<'a> EspLedDriver<'a> {
         let rmt_buffer = make_static!(smart_led_buffer!(MAX_LED_COUNT));
         let adapter = SmartLedsAdapter::new(rmt.channel0, pin, rmt_buffer);
 
-        Self {
-            adapter,
-            skip_leds: 0,
-        }
-    }
-
-    pub(crate) fn new_with_skip<O>(rmt: RMT<'a>, pin: O, skip_leds: usize) -> Self
-    where
-        O: PeripheralOutput<'a>,
-    {
-        let mut driver = Self::new(rmt, pin);
-        driver.skip_leds = skip_leds;
-        driver
+        Self { adapter }
     }
 }
 
 impl LedDriver for EspLedDriver<'static> {
-    fn write<const N: usize>(&mut self, colors: &[Rgb; N]) {
-        if config::LIGHT.skip_leds != 0 {
-            let mut colors_with_skip: [Rgb; N] = [Rgb::new(0, 0, 0); N];
-            for i in config::LIGHT.skip_leds..N {
-                colors_with_skip[i] = colors[i - config::LIGHT.skip_leds];
-            }
-            interrupt::free(|| {
-                let _ = self.adapter.write(colors_with_skip.iter().copied());
-            });
-        } else {
-            interrupt::free(|| {
-                let _ = self.adapter.write(colors.iter().copied());
-            });
-        }
+    fn write(&mut self, colors: &[Rgb]) {
+        interrupt::free(|| {
+            let _ = self.adapter.write(colors.iter().copied());
+        });
     }
 }
