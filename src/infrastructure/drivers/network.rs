@@ -1,4 +1,4 @@
-use heapless::String;
+use heapless::{String, Vec};
 
 use embassy_net::{
     DhcpConfig, IpAddress, Ipv4Address, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4,
@@ -53,7 +53,7 @@ pub fn init_network_stack(
 /// Initialize the network stack for AP (Access Point) mode.
 ///
 /// Uses a static IP configuration (192.168.4.1/24) suitable for a captive portal.
-/// Returns the network stack, runner, and WiFi controller.
+/// Returns the network [`Stack`], [`Runner`], and [`WifiController`].
 pub fn init_network_stack_ap(
     wifi_device: WIFI<'static>,
 ) -> (
@@ -70,7 +70,7 @@ pub fn init_network_stack_ap(
     let static_config = StaticConfigV4 {
         address: Ipv4Cidr::new(AP_IP_ADDRESS, AP_PREFIX_LEN),
         gateway: Some(AP_GATEWAY),
-        dns_servers: Default::default(),
+        dns_servers: Vec::default(),
     };
     let net_config = embassy_net::Config::ipv4_static(static_config);
 

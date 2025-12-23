@@ -4,7 +4,7 @@
 //! - Starts a Wi-Fi Access Point (MyrtIO-Setup-XXXX)
 //! - Runs a DHCP server for clients
 //! - Serves an HTTP configuration page on 192.168.4.1
-//! - Allows configuration of WiFi, MQTT, and LED settings
+//! - Allows configuration of `WiFi`, MQTT, and LED settings
 //! - Allows uploading OTA firmware to the next partition
 
 #![no_std]
@@ -20,10 +20,15 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 use static_cell::StaticCell;
 
+use myrtio_esp_light::app::ConfigurationUsecases;
+use myrtio_esp_light::config;
+use myrtio_esp_light::controllers::init_factory_controllers;
 use myrtio_esp_light::infrastructure::drivers::init_network_stack_ap;
-use myrtio_esp_light::infrastructure::tasks::{
-    dhcp_server_task, factory_http_task, factory_network_runner_task, factory_wifi_ap_task,
+use myrtio_esp_light::infrastructure::repositories::AppPersistentStorage;
+use myrtio_esp_light::infrastructure::tasks::factory::{
+    dhcp_server_task, factory_network_runner_task, factory_wifi_ap_task, http_server_task,
 };
+use myrtio_esp_light::mk_static;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -80,8 +85,16 @@ async fn main(spawner: Spawner) -> ! {
     // Spawn DHCP server
     spawner.spawn(dhcp_server_task(stack)).ok();
 
+    // Initialize configuration usecases and http handler
+    let storage = AppPersistentStorage::new(flash_ptr, config::CONFIGURATION_PARTITION_OFFSET);
+    let usecases = mk_static!(
+        ConfigurationUsecases<AppPersistentStorage>,
+        ConfigurationUsecases::new(storage)
+    );
+    let handler = init_factory_controllers(usecases, flash_ptr);
+
     // Spawn HTTP server
-    spawner.spawn(factory_http_task(stack, flash_ptr)).ok();
+    spawner.spawn(http_server_task(stack, handler)).ok();
 
     println!("Factory firmware ready!");
     println!("Connect to WiFi: MyrtIO-Setup-XXXX");

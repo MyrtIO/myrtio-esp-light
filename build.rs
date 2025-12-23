@@ -10,7 +10,7 @@ fn get_commit_hash() -> String {
         .arg("HEAD")
         .output()
         .unwrap();
-    String::from_utf8(output.stdout).unwrap()
+    String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
 fn main() {
@@ -19,8 +19,9 @@ fn main() {
     // make sure linkall.x is the last linker script (otherwise might cause problems with flip-link)
     println!("cargo:rustc-link-arg=-Tlinkall.x");
     // Add environment variables for the firmware version
-    let build_date = Utc::now().format("%Y-%m-%d_%H:%M:%S").to_string();
-    let version = format!("{}_{}", get_commit_hash(), build_date);
+    // format date to iso 8601 with timezone offset
+    let build_date = Utc::now().format("%Y-%m-%dT%H:%M:%S%z").to_string();
+    let version = format!("{}-{}", get_commit_hash(), build_date);
     println!("cargo:rustc-env=BUILD_VERSION={}", version);
 }
 

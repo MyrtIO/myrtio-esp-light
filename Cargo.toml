@@ -15,24 +15,25 @@ name = "myrtio-esp-light-factory"
 path = "src/bin/factory.rs"
 
 [dependencies]
+myrtio-light-factory-page = { path = "factory-page" }
+
 myrtio-light-composer = "0.3.0"
 myrtio-mqtt = "0.1.0"
 myrtio-mqtt-homeassistant = "0.1.1"
-myrtio-light-factory-page = { path = "factory-page" }
-# myrtio-core = { path = "crates/myrtio-core" }
-# myrtio-macros = { path = "crates/myrtio-macros" }
 
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32"] }
 esp-hal = { version = "1.0.0", features = ["esp32", "unstable"] }
 esp-alloc = { version = "0.9.0", features = ["esp32"] }
 esp-rtos = { version = "0.2.0", features = ["esp-radio", "embassy", "esp32"] }
 esp-println = { version = "0.16.1", features = ["log-04", "esp32"] }
-esp-backtrace = { version = "0.18.1", features = ["esp32", "println", "panic-handler"] }
+esp-backtrace = { version = "0.18.1", features = [
+    "esp32",
+    "println",
+    "panic-handler",
+] }
 esp-radio = { version = "0.17.0", features = ["esp32", "wifi"] }
 esp-storage = { version = "0.8.1", features = ["esp32"] }
 esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "d9239ac49c7b383689fbbb1762db021e2a7a41a2" }
-
-embedded-storage = "0.3.1"
 
 embassy-executor = "0.9.1"
 embassy-time = { version = "0.5.0", features = ["generic-queue-16"] }
@@ -51,15 +52,17 @@ embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
 embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
+embedded-storage = "0.3.1"
 
 critical-section = "1.2.0"
 static_cell = { version = "2.1.0", features = ["nightly"] }
 heapless = "0.8"
-smart-leds = "0.4.0"
+bytemuck = { version = "1.24.0", features = ["min_const_generics", "derive"] }
 
 serde = { version = "1.0.228", default-features = false }
+serde-json-core = { version = "0.6.0", features = ["heapless"] }
 
-bytemuck = { version = "1.24.0", features = ["min_const_generics", "derive"] }
+smart-leds = "0.4.0"
 
 [build-dependencies]
 dotenv-build = "0.1.1"

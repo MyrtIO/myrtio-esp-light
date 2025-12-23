@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/src/style.css">
     <title>MyrtIO Светильник</title>
 </head>
 
@@ -17,23 +16,25 @@
     <div class="container">
         <header id="header">
             <div class="logo">MyrtIO <span>Светильник</span></div>
-            <button type="submit" id="saveBtn" class="btn-save" form="configForm">Сохранить</button>
+            <div class="loader _visible"></div>
+            <div class="progress-bar"></div>
+            <button type="submit" id="button-save" class="btn _rounded _hidden" form="configForm">Сохранить</button>
         </header>
 
-        <form id="configForm">
+        <form id="configForm" class="_disabled animated">
             <section>
                 <h2>Wi-Fi</h2>
                 <div class="card">
                     <div class="row">
                         <div class="label">Точка доступа</div>
                         <div class="value">
-                            <input type="text" id="wifi_ssid" name="wifi_ssid" maxlength="32" required
+                            <input spellcheck="false" type="text" name="wifi_ssid" maxlength="32" required
                                 placeholder="SSID">
                         </div>
                     </div>
                     <div class="row">
                         <div class="label">Пароль</div>
-                        <div class="value"><input type="password" id="wifi_password" name="wifi_password" maxlength="64"
+                        <div spellcheck="false" class="value"><input type="password" name="wifi_password" maxlength="64"
                                 placeholder="******"></div>
                     </div>
                 </div>
@@ -44,23 +45,22 @@
                 <div class="card">
                     <div class="row">
                         <div class="label">Хост</div>
-                        <div class="value"><input type="text" id="mqtt_host" name="mqtt_host" maxlength="64" required
-                                placeholder="mqtt.local"></div>
+                        <div spellcheck="false" class="value"><input type="text" name="mqtt_host" maxlength="64"
+                                required placeholder="mqtt.local"></div>
                     </div>
                     <div class="row">
                         <div class="label">Порт</div>
-                        <div class="value"><input type="text" id="mqtt_port" name="mqtt_port" type="number" max="65535"
-                                min="1" required placeholder="1883"></div>
+                        <div spellcheck="false" class="value"><input type="number" name="mqtt_port" type="number"
+                                max="65535" min="1" required placeholder="1883"></div>
                     </div>
                     <div class="row">
                         <div class="label">Имя пользователя</div>
-                        <div class="value"><input type="text" id="mqtt_username" name="mqtt_username" maxlength="32">
+                        <div spellcheck="false" class="value"><input type="text" name="mqtt_username" maxlength="32">
                         </div>
                     </div>
                     <div class="row">
                         <div class="label">Пароль</div>
-                        <div class="value"><input type="password" id="mqtt_password" name="mqtt_password"
-                                maxlength="64"></div>
+                        <div class="value"><input type="password" name="mqtt_password" maxlength="64"></div>
                     </div>
                 </div>
             </section>
@@ -70,20 +70,20 @@
                 <div class="card">
                     <div class="row">
                         <div class="label">Количество диодов</div>
-                        <div class="value"><input type="number" id="led_count" name="led_count" required type="number"
-                                placeholder="60" min="1" max="255"></div>
+                        <div class="value"><input type="number" name="led_count" required type="number" placeholder="60"
+                                min="1" max="255"></div>
                     </div>
                     <div class="row">
                         <div class="label">Отступ</div>
-                        <div class="value"><input placeholder="0" type="number" id="skip_leds" name="skip_leds" min="0"
-                                max="255"></div>
+                        <div class="value"><input placeholder="0" type="number" name="skip_leds" min="0" max="255">
+                        </div>
                     </div>
                     <div class="row">
                         <div class="label">Цветокоррекция</div>
                         <div class="value">
                             <span style="color: var(--text-secondary); margin-right: -4px;">#</span>
-                            <input type="text" id="color_correction" placeholder="FFFFFF" name="color_correction"
-                                pattern="[0-9A-Fa-f]{6}" maxlength="6" style="text-transform: uppercase; width: 70px;">
+                            <input type="number" placeholder="FFFFFF" name="color_correction" pattern="[0-9A-Fa-f]{6}"
+                                maxlength="6" style="text-transform: uppercase; width: 70px;">
                         </div>
                     </div>
                     <div class="row">
@@ -99,35 +99,35 @@
                     </div>
                 </div>
             </section>
-
-            <section>
-                <h2>Система</h2>
-                <div class="card">
-                    <div class="row">
-                        <div class="label">Номер сборки</div>
-                        <div class="value" style="color: var(--text-secondary)">b738590e</div>
-                    </div>
-                    <div class="row">
-                        <div class="label">Дата сборки</div>
-                        <div class="value" style="color: var(--text-secondary)">21.12.2025 15:53</div>
-                    </div>
-                    <div class="row">
-                        <div class="label">MAC-адрес</div>
-                        <div class="value" style="color: var(--text-secondary)">AA:BB:CC:DD:11:22:33:44</div>
-                    </div>
-                    <div class="row">
-                        <div class="label">Обновление системы</div>
-                        <div class="value">
-                            <a href="#" class="action-link" id="uploadTrigger">Загрузить файл...</a>
-                            <input type="file" id="otaFile" accept=".bin">
-                        </div>
-                    </div>
-                </div>
-                <div class="progress-container" id="progressContainer">
-                    <div class="progress-bar" id="progressBar"></div>
-                </div>
-            </section>
         </form>
+        <section class="system-section _disabled animated">
+            <h2>Система</h2>
+            <div class="card">
+                <div class="row">
+                    <div class="label">Номер сборки</div>
+                    <div class="value" id="build-version" style="color: var(--text-secondary)">b738590e</div>
+                </div>
+                <div class="row">
+                    <div class="label">Дата сборки</div>
+                    <div class="value" id="build-date" style="color: var(--text-secondary)">21.12.2025 15:53</div>
+                </div>
+                <div class="row">
+                    <div class="label">MAC-адрес</div>
+                    <div class="value" id="mac-address" style="color: var(--text-secondary)">AA:BB:CC:DD:11:22:33:44
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="label">Обновление системы</div>
+                    <div class="value">
+                        <button type="button" id="button-ota" class="btn _danger">Загрузить файл...</button>
+                        <input type="file" id="ota-file" accept=".bin">
+                    </div>
+                </div>
+            </div>
+            <!-- <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+            </div> -->
+        </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
 </body>

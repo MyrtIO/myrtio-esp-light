@@ -45,6 +45,9 @@ run *ARGS:
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
+run-factory-page *ARGS:
+    cd factory-page && VITE_MOCK_API=true bun run dev -- {{ARGS}}
+
 lint *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh

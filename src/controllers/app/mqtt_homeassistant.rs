@@ -12,12 +12,11 @@ use myrtio_mqtt_homeassistant::{
 };
 use static_cell::StaticCell;
 
+use super::LIGHT_USECASES;
 use crate::config::{
     BUILD_VERSION, DEVICE_MANUFACTURER, DEVICE_MODEL, TEMPERATURE_MAX_KELVIN,
     TEMPERATURE_MIN_KELVIN, hardware_id,
 };
-use crate::controllers::dependencies::LIGHT_USECASES;
-// use crate::controllers::mqtt::device::LIGHT_ENTITY;
 use crate::domain::dto::LightChangeIntent;
 use crate::mk_static;
 
@@ -100,7 +99,7 @@ fn format_device_name(hardware_id: u32) -> String<32> {
 }
 
 /// Initialize and return the Home Assistant MQTT module as a trait object.
-pub(crate) fn init_home_assistant_module() -> &'static mut dyn MqttModule {
+pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
     let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
     let device_name = mk_static!(String<32>, format_device_name(hardware_id()));
 

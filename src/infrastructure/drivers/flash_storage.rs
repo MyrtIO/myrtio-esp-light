@@ -17,7 +17,6 @@ const BLOCK_SIZE: u32 = 4096;
 pub(crate) enum StorageError {
     DriverError,
     InvalidMagicHeader,
-    InvalidData,
 }
 
 /// Persistent storage implementation using a storage driver.
@@ -61,12 +60,12 @@ impl<T: Pod> EspPersistentStorage<T> {
     }
 
     /// Save persistent data to flash
-    /// 
+    ///
     /// NOR flash requires erase before write. This erases the entire block
     /// (4 KiB sector) before writing the data.
     pub(crate) fn save(&self, state: &T) -> Result<(), StorageError> {
         let flash = unsafe { &mut *self.flash };
-        
+
         // Erase the block first (NOR flash can only flip 1→0, erase sets to 1)
         flash
             .erase(self.addr, self.addr + BLOCK_SIZE)

@@ -1,3 +1,6 @@
+use heapless::String;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
 use crate::domain::entity::LightState;
 
 /// Represents a user intent to change the light state.
@@ -76,4 +79,10 @@ impl From<LightState> for LightChangeIntent {
             mode_id: Some(state.mode_id),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemInformation {
+    pub build_version: String<32>,
+    pub mac_address: [u8; 6],
 }

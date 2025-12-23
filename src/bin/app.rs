@@ -12,8 +12,8 @@ use esp_storage::FlashStorage;
 use static_cell::StaticCell;
 
 use myrtio_esp_light::app::LightUsecases;
-use myrtio_esp_light::config::{DeviceConfig, LIGHT_STATE_PARTITION_OFFSET};
-use myrtio_esp_light::controllers::init_controllers;
+use myrtio_esp_light::config::{DeviceConfig, CONFIGURATION_PARTITION_OFFSET};
+use myrtio_esp_light::controllers::{init_app_controllers};
 use myrtio_esp_light::domain::entity::LightState;
 use myrtio_esp_light::domain::ports::{OnBootHandler, PersistenceHandler};
 use myrtio_esp_light::infrastructure::drivers::{init_network_stack, wait_for_connection};
@@ -24,8 +24,8 @@ use myrtio_esp_light::infrastructure::services::{
 use myrtio_esp_light::infrastructure::tasks::light_composer::{
     LightTaskParams, init_light_composer, light_composer_task,
 };
-use myrtio_esp_light::infrastructure::tasks::{
-    mqtt_runtime_task, network_runner_task, persistence_task, wifi_connection_task,
+use myrtio_esp_light::infrastructure::tasks::app::{
+    mqtt_client_task, network_runner_task, persistence_task, wifi_connection_task,
 };
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -53,7 +53,7 @@ async fn main(spawner: Spawner) -> ! {
     // Initialize flash storage and get initial state + config
     let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
     let flash_ptr = flash as *mut FlashStorage<'static>;
-    let storage = AppPersistentStorage::new(flash_ptr, LIGHT_STATE_PARTITION_OFFSET);
+    let storage = AppPersistentStorage::new(flash_ptr, CONFIGURATION_PARTITION_OFFSET);
     let persistent_data = storage.get_persistent_data();
     let initial_state: Option<LightState> =
         persistent_data.as_ref().map(|(_, state, _)| state.clone());
@@ -96,7 +96,7 @@ async fn main(spawner: Spawner) -> ! {
         LightUsecases<LightStateService, LightStatePersistenceService>,
         LightUsecases::new(state_service, persistence_service)
     );
-    let (mqtt_module, boot_controller) = init_controllers(usecases);
+    let (mqtt_module, boot_controller) = init_app_controllers(usecases);
     boot_controller.on_boot(initial_state);
 
     // Validate config and start network if provisioned
@@ -131,7 +131,7 @@ async fn main(spawner: Spawner) -> ! {
 
     // Spawn MQTT task
     spawner
-        .spawn(mqtt_runtime_task(
+        .spawn(mqtt_client_task(
             stack,
             mqtt_module,
             device_config.mqtt.clone(),

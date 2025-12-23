@@ -1,6 +1,8 @@
 use crate::config::DeviceConfig;
 use crate::domain::dto::LightChangeIntent;
 use crate::domain::entity::LightState;
+// use crate::infrastructure::services::http_server::HttpConnection;
+use crate::infrastructure::services::OtaError;
 
 /// Reader interface for the light state
 pub trait LightStateReader {
@@ -48,7 +50,7 @@ pub trait OnBootHandler: Sync + Send {
     fn on_boot(&self, stored_state: Option<LightState>);
 }
 
-pub trait PersistenceHandler {
+pub trait PersistenceHandler: Sync + Send {
     /// Get the persistent data
     fn get_persistent_data(&self) -> Option<(u8, LightState, DeviceConfig)>;
 
@@ -56,8 +58,21 @@ pub trait PersistenceHandler {
     fn persist_light_state(&mut self, light_state: LightState) -> Option<()>;
 
     /// Persist the device config
-    fn persist_device_config(&mut self, config: DeviceConfig) -> Option<()>;
+    fn persist_device_config(&mut self, config: &DeviceConfig) -> Option<()>;
 
     /// Persist the boot count
     fn persist_boot_count(&mut self, boot_count: u8) -> Option<()>;
 }
+
+pub trait ConfigurationUsecasesPort: Sync + Send {
+    /// Get the device config
+    fn get_device_config(&self) -> Option<DeviceConfig>;
+
+    /// Set the device config
+    fn set_device_config(&mut self, config: &DeviceConfig) -> Option<()>;
+}
+
+// pub trait OtaUsecasesPort: Sync + Send {
+//     /// Update the firmware from the HTTP server
+//     async fn update_from_http(&mut self, conn: &mut HttpConnection<'_>) -> Result<(), OtaError>;
+// }

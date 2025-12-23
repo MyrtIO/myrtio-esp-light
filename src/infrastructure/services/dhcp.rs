@@ -29,7 +29,7 @@ const LEASE_TIME_SECS: u32 = 3600; // 1 hour
 const SUBNET_MASK: Ipv4Address = Ipv4Address::new(255, 255, 255, 0);
 
 /// Minimum DHCP packet size (BOOTP header + magic cookie)
-pub const MIN_DHCP_PACKET_SIZE: usize = 240;
+const MIN_DHCP_PACKET_SIZE: usize = 240;
 
 /// Parsed DHCP request
 #[derive(Debug)]
@@ -64,7 +64,7 @@ pub fn parse_dhcp_request(packet: &[u8]) -> Option<DhcpRequest> {
     client_mac.copy_from_slice(&packet[28..34]);
 
     // Check magic cookie
-    if &packet[236..240] != &DHCP_MAGIC_COOKIE {
+    if packet[236..240] != DHCP_MAGIC_COOKIE {
         return None;
     }
 
@@ -207,20 +207,20 @@ fn find_dhcp_option(options: &[u8], option_code: u8) -> Option<&[u8]> {
     None
 }
 
-/// Format a MAC address for display
-pub fn format_mac(mac: &[u8; 6]) -> [u8; 17] {
-    let mut buf = [0u8; 17];
-    let hex = b"0123456789ABCDEF";
-    for (i, &byte) in mac.iter().enumerate() {
-        let pos = i * 3;
-        buf[pos] = hex[(byte >> 4) as usize];
-        buf[pos + 1] = hex[(byte & 0x0F) as usize];
-        if i < 5 {
-            buf[pos + 2] = b':';
-        }
-    }
-    buf
-}
+// /// Format a MAC address for display
+// pub fn format_mac(mac: &[u8; 6]) -> [u8; 17] {
+//     let mut buf = [0u8; 17];
+//     let hex = b"0123456789ABCDEF";
+//     for (i, &byte) in mac.iter().enumerate() {
+//         let pos = i * 3;
+//         buf[pos] = hex[(byte >> 4) as usize];
+//         buf[pos + 1] = hex[(byte & 0x0F) as usize];
+//         if i < 5 {
+//             buf[pos + 2] = b':';
+//         }
+//     }
+//     buf
+// }
 
 
 

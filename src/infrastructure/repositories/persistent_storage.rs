@@ -158,6 +158,9 @@ impl AppPersistentStorage {
     }
 }
 
+unsafe impl Send for AppPersistentStorage {}
+unsafe impl Sync for AppPersistentStorage {}
+
 impl PersistenceHandler for AppPersistentStorage {
     fn get_persistent_data(&self) -> Option<(u8, LightState, DeviceConfig)> {
         let data = self.get_raw_data()?;
@@ -176,11 +179,11 @@ impl PersistenceHandler for AppPersistentStorage {
         self.save_raw_data(&data)
     }
 
-    fn persist_device_config(&mut self, config: DeviceConfig) -> Option<()> {
+    fn persist_device_config(&mut self, config: &DeviceConfig) -> Option<()> {
         let mut data = self
             .get_raw_data()
             .unwrap_or_else(AppPersistentData::zeroed);
-        data.config = config.into();
+        data.config = config.clone().into();
         self.save_raw_data(&data)
     }
 

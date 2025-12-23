@@ -1,15 +1,10 @@
-use crate::{
-    controllers::dependencies::LIGHT_USECASES,
-    domain::{dto::LightChangeIntent, entity::LightState, ports::OnBootHandler},
-};
+use super::LIGHT_USECASES;
+use crate::domain::dto::LightChangeIntent;
+use crate::domain::entity::LightState;
+use crate::domain::ports::OnBootHandler;
 
+#[derive(Default)]
 pub struct BootController;
-
-impl BootController {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 impl OnBootHandler for BootController {
     fn on_boot(&self, stored_state: Option<LightState>) {

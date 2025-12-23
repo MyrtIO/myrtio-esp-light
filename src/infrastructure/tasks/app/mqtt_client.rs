@@ -27,7 +27,7 @@ static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> = Chan
 
 /// MQTT runtime task that accepts any module implementing `MqttModule`.
 #[embassy_executor::task]
-pub async fn mqtt_runtime_task(
+pub async fn mqtt_client_task(
     stack: Stack<'static>,
     module: &'static mut dyn MqttModule,
     mqtt_config: MqttConfig,

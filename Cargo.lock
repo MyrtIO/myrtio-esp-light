@@ -1247,6 +1247,7 @@ dependencies = [
  "myrtio-mqtt",
  "myrtio-mqtt-homeassistant",
  "serde",
+ "serde-json-core",
  "smart-leds",
  "static_cell",
 ]

@@ -17,7 +17,7 @@ use esp_bootloader_esp_idf::partitions::PARTITION_TABLE_MAX_LEN;
 use esp_println::println;
 use esp_storage::FlashStorage;
 
-use crate::config::{DeviceConfig, LightConfig, MqttConfig, WifiConfig, LIGHT_STATE_PARTITION_OFFSET};
+use crate::config::{DeviceConfig, LightConfig, MqttConfig, WifiConfig, CONFIGURATION_PARTITION_OFFSET};
 use crate::domain::ports::PersistenceHandler;
 use crate::infrastructure::repositories::AppPersistentStorage;
 
@@ -31,7 +31,7 @@ const HEADER_BUFFER_SIZE: usize = 2048;
 ///
 /// Handles web requests for configuration and OTA updates.
 #[embassy_executor::task]
-pub async fn factory_http_task(stack: Stack<'static>, flash: *mut FlashStorage<'static>) {
+pub async fn factory_http_server_task(stack: Stack<'static>, flash: *mut FlashStorage<'static>) {
     println!("factory_http: starting on port {}", HTTP_PORT);
 
     loop {
@@ -134,7 +134,6 @@ async fn serve_html<'a>(socket: &mut TcpSocket<'a>) -> Result<(), HttpError> {
     socket.write_all(header.as_bytes()).await.map_err(|_| HttpError::Write)?;
     socket.flush().await.map_err(|_| HttpError::Write)?;
     
-    // Send HTML in chunks to avoid buffer overflow
     for chunk in HTML.chunks(CHUNK_SIZE) {
         socket.write_all(chunk).await.map_err(|_| HttpError::Write)?;
         socket.flush().await.map_err(|_| HttpError::Write)?;
@@ -146,7 +145,7 @@ async fn serve_config<'a>(
     socket: &mut TcpSocket<'a>,
     flash: *mut FlashStorage<'static>,
 ) -> Result<(), HttpError> {
-    let storage = AppPersistentStorage::new(flash, LIGHT_STATE_PARTITION_OFFSET);
+    let storage = AppPersistentStorage::new(flash, CONFIGURATION_PARTITION_OFFSET);
     
     let json = if let Some((_, _, config)) = storage.get_persistent_data() {
         format_config_json(&config)
@@ -204,7 +203,7 @@ async fn handle_config_post<'a>(
     // Parse form data
     let body_str = str::from_utf8(&body).map_err(|_| HttpError::Parse)?;
     
-    let mut storage = AppPersistentStorage::new(flash, LIGHT_STATE_PARTITION_OFFSET);
+    let mut storage = AppPersistentStorage::new(flash, CONFIGURATION_PARTITION_OFFSET);
     
     // Get current config or create default
     let mut config = storage.get_persistent_data()

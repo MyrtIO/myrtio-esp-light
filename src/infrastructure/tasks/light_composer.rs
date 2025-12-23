@@ -1,5 +1,4 @@
 use embassy_sync::channel::Channel;
-use embassy_time::Duration;
 use esp_hal::gpio::interconnect::PeripheralOutput;
 use esp_hal::peripherals::RMT;
 
@@ -8,9 +7,10 @@ use myrtio_light_composer::color::rgb_from_u32;
 use myrtio_light_composer::effect::BrightnessEffectConfig;
 use myrtio_light_composer::{
     EffectProcessorConfig, IntentChannel, IntentSender, LightEngine, LightEngineConfig, ModeId,
-    Rgb, TransitionTimings, ws2812_lut,
+    Rgb, ws2812_lut,
 };
 
+use crate::config::DEFAULT_TRANSITION_TIMINGS;
 use crate::infrastructure::drivers::EspLedDriver;
 use crate::infrastructure::types::LightDriver;
 
@@ -29,7 +29,7 @@ pub struct LightTaskParams {
 #[embassy_executor::task]
 pub async fn light_composer_task(driver: LightDriver, params: LightTaskParams) {
     let config = LightEngineConfig {
-        mode: ModeId::Rainbow,
+        mode: ModeId::Static,
         brightness: 0,
         color: Rgb::new(255, 255, 255),
         bounds: RenderingBounds {
@@ -44,12 +44,7 @@ pub async fn light_composer_task(driver: LightDriver, params: LightTaskParams) {
             },
             color_correction: Some(rgb_from_u32(params.color_correction)),
         },
-        timings: TransitionTimings {
-            fade_out: Duration::from_millis(800),
-            fade_in: Duration::from_millis(500),
-            color_change: Duration::from_millis(200),
-            brightness: Duration::from_millis(300),
-        },
+        timings: DEFAULT_TRANSITION_TIMINGS,
     };
 
     let receiver = LIGHT_INTENT_CHANNEL.receiver();
