@@ -18,8 +18,8 @@ path = "src/bin/factory.rs"
 myrtio-light-factory-page = { path = "factory-page" }
 
 myrtio-light-composer = "0.4.0"
-myrtio-mqtt = "0.1.0"
-myrtio-mqtt-homeassistant = "0.1.1"
+myrtio-mqtt = "0.1.2"
+myrtio-mqtt-homeassistant = "0.1.2"
 
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32"] }
 esp-hal = { version = "1.0.0", features = ["esp32", "unstable"] }

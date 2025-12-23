@@ -22,7 +22,7 @@ pub const TEMPERATURE_MAX_KELVIN: u16 = 6500;
 /// Minimum supported temperature in Kelvin
 pub const TEMPERATURE_MIN_KELVIN: u16 = 1500;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WifiConfig {
     pub ssid: String<32>,
     pub password: String<64>,
@@ -36,6 +36,17 @@ pub struct MqttConfig {
     pub password: String<64>,
 }
 
+impl Default for MqttConfig {
+    fn default() -> Self {
+        Self {
+            host: String::new(),
+            port: 1883,
+            username: String::new(),
+            password: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Zeroable, Pod, Serialize, Deserialize)]
 #[repr(C)]
 pub struct LightConfig {
@@ -46,7 +57,19 @@ pub struct LightConfig {
     pub color_correction: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Default for LightConfig {
+    fn default() -> Self {
+        Self {
+            brightness_min: 0,
+            brightness_max: 255,
+            led_count: 20,
+            skip_leds: 0,
+            color_correction: 0xFF_FFFF,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeviceConfig {
     pub wifi: WifiConfig,
     pub mqtt: MqttConfig,

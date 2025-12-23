@@ -201,7 +201,7 @@ impl PersistenceHandler for AppPersistentStorage {
     }
 
     fn increment_reboot_count(&mut self) -> Option<u8> {
-        let mut data = self.get_raw_data()?;
+        let mut data = self.get_raw_data().unwrap_or(AppPersistentData::zeroed());
         data.reboot_count += 1;
         self.save_raw_data(&data)?;
 

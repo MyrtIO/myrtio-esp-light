@@ -67,8 +67,12 @@ async fn handle_get_system_information(mut conn: HttpConnection<'_>) -> HttpResu
 
 async fn handle_get_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
     let config = CONFIGURATION_USECASES
-        .lock(|cell| cell.borrow_mut().as_ref().unwrap().get_device_config())
-        .unwrap();
+        .lock(|cell| {
+            cell.borrow()
+                .as_ref()
+                .and_then(|usecases| usecases.get_device_config())
+        })
+        .unwrap_or_default();
 
     conn.write_json(&config).await
 }
@@ -78,13 +82,12 @@ async fn handle_set_configuration(
     intents: IntentSender,
 ) -> HttpResult {
     let config = conn.read_json::<DeviceConfig>().await?;
-    let mut is_success = false;
-    unsafe {
-        CONFIGURATION_USECASES.lock_mut(|cell| {
-            let usecases = cell.get_mut().as_mut().unwrap();
-            is_success = usecases.set_device_config(&config).is_some();
-        });
-    }
+    let is_success = CONFIGURATION_USECASES.lock(|cell| {
+        cell.borrow_mut()
+            .as_mut()
+            .and_then(|usecases| usecases.set_device_config(&config))
+            .is_some()
+    });
     intents.send(LightIntent::BoundsChange(RenderingBounds {
         start: config.light.skip_leds,
         end: config.light.skip_leds + config.light.led_count,

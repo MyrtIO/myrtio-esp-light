@@ -21,7 +21,7 @@ use crate::mk_static;
 
 const MQTT_OUTBOX_DEPTH: usize = 4;
 const MQTT_MAX_TOPICS: usize = 8;
-const MQTT_BUF_SIZE: usize = 1024;
+const MQTT_BUF_SIZE: usize = 2048;
 
 static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> = Channel::new();
 
@@ -33,7 +33,7 @@ pub async fn mqtt_client_task(
     mqtt_config: MqttConfig,
 ) {
     println!("mqtt: starting runtime task");
-    let device_id = mk_static!(String<17>, format_device_id(hardware_id()));
+    let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
     println!("mqtt: device id: {}", device_id);
     loop {
         if let Err(_e) = run_mqtt_client(stack, module, &mqtt_config, device_id).await {
@@ -43,9 +43,9 @@ pub async fn mqtt_client_task(
     }
 }
 
-fn format_device_id(hardware_id: u32) -> String<17> {
+fn format_device_id(hardware_id: u32) -> String<32> {
     use core::fmt::Write;
-    let mut device_id = String::<17>::new();
+    let mut device_id = String::<32>::new();
     let _ = write!(device_id, "myrtio-light-{:04X}", hardware_id);
     device_id
 }
