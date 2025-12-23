@@ -1,11 +1,13 @@
 use embassy_time::{Duration, Timer};
 use esp_storage::FlashStorage;
 use heapless::String;
+use myrtio_light_composer::bounds::RenderingBounds;
+use myrtio_light_composer::{IntentSender, LightIntent, Rgb};
 
 use super::CONFIGURATION_USECASES;
 use crate::config::{self, DeviceConfig};
 use crate::domain::dto::SystemInformation;
-use crate::domain::ports::BootManagerPort;
+use crate::domain::ports::{BootManagerPort};
 use crate::infrastructure::repositories::BootManager;
 use crate::infrastructure::services::http::HttpResult;
 use crate::infrastructure::services::http::connection::HttpConnection;
@@ -16,14 +18,14 @@ use crate::infrastructure::services::http::headers::{
 use crate::infrastructure::services::http::http_server::HttpHandler;
 use crate::infrastructure::services::update_from_http;
 
-#[derive(Default)]
 pub struct FactoryHttpController {
     flash: *mut FlashStorage<'static>,
+    intents: IntentSender,
 }
 
 impl FactoryHttpController {
-    pub fn new(flash: *mut FlashStorage<'static>) -> Self {
-        Self { flash }
+    pub fn new(flash: *mut FlashStorage<'static>, intents: IntentSender) -> Self {
+        Self { flash, intents }
     }
 }
 
@@ -33,7 +35,7 @@ impl HttpHandler for FactoryHttpController {
             (HttpMethod::Get, "/") => handle_get_html(conn).await,
             (HttpMethod::Get, "/api/system") => handle_get_system_information(conn).await,
             (HttpMethod::Get, "/api/configuration") => handle_get_configuration(conn).await,
-            (HttpMethod::Post, "/api/configuration") => handle_set_configuration(conn).await,
+            (HttpMethod::Post, "/api/configuration") => handle_set_configuration(conn, self.intents).await,
             (HttpMethod::Post, "/api/boot") => handle_boot(conn, self.flash).await,
             (HttpMethod::Post, "/api/ota") => handle_ota_update(conn, self.flash).await,
             _ => serve_404(conn).await,
@@ -71,7 +73,10 @@ async fn handle_get_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
     conn.write_json(&config).await
 }
 
-async fn handle_set_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
+async fn handle_set_configuration(
+    mut conn: HttpConnection<'_>,
+    intents: IntentSender,
+) -> HttpResult {
     let config = conn.read_json::<DeviceConfig>().await?;
     let mut is_success = false;
     unsafe {
@@ -80,6 +85,21 @@ async fn handle_set_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
             is_success = usecases.set_device_config(&config).is_some();
         });
     }
+    intents.send(LightIntent::BoundsChange(RenderingBounds {
+        start: config.light.skip_leds,
+        end: config.light.skip_leds + config.light.led_count,
+    })).await;
+    intents.send(LightIntent::ColorCorrectionChange(Rgb {
+        r: (config.light.color_correction >> 16) as u8,
+        g: (config.light.color_correction >> 8) as u8,
+        b: (config.light.color_correction & 0xFF) as u8,
+    })).await;
+    intents.send(LightIntent::MinimalBrightnessChange(
+        config.light.brightness_min,
+    )).await;
+    intents.send(LightIntent::BrightnessScaleChange(
+        config.light.brightness_max,
+    )).await;
     if is_success {
         conn.write_headers(&ResponseHeaders::success()).await?;
     } else {
@@ -89,7 +109,10 @@ async fn handle_set_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
     Ok(())
 }
 
-async fn handle_boot(mut conn: HttpConnection<'_>, flash: *mut FlashStorage<'static>) -> HttpResult {
+async fn handle_boot(
+    mut conn: HttpConnection<'_>,
+    flash: *mut FlashStorage<'static>,
+) -> HttpResult {
     let mut boot_manager = BootManager::new(flash);
     boot_manager.boot_system().unwrap();
     Ok(())

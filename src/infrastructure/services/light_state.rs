@@ -1,5 +1,6 @@
 use core::sync::atomic::{AtomicU8, AtomicU16, Ordering};
 
+use myrtio_light_composer::engine::LightStateIntent;
 use myrtio_light_composer::{IntentSender, LightIntent, ModeId, Rgb};
 
 use crate::domain::dto::LightChangeIntent;
@@ -106,13 +107,13 @@ impl LightIntentApplier for LightStateService {
             state.power = power;
         }
 
-        let composer_intent = LightIntent {
+        let composer_intent = LightIntent::StateChange(LightStateIntent {
             power: intent.power,
             brightness: intent.brightness,
             color: intent.color.map(|(r, g, b)| Rgb { r, g, b }),
             color_temperature: intent.color_temp,
             mode_id: intent.mode_id.and_then(ModeId::from_raw),
-        };
+        });
 
         LIGHT_STATE.set(&state);
 

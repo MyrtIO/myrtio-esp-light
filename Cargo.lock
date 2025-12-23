@@ -1254,9 +1254,9 @@ dependencies = [
 
 [[package]]
 name = "myrtio-light-composer"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98b7ac93d9c321042e06d262daec3917b8ad7dc6780433a79343ef6e5888ece9"
+checksum = "9cc1a0c27c6289eca0eda3c35fa3a1686628946c7bc1a32d065cc5759ffab71f"
 dependencies = [
  "embassy-sync 0.7.2",
  "embassy-time",
