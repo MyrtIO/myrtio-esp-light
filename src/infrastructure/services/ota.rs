@@ -43,14 +43,18 @@ pub(crate) async fn update_from_http(
     let mut updater = OtaUpdater::new(flash_ref, &mut part_buffer)
         .map_err(|_| OtaError::InvalidPartitionTable)?;
 
-    let (mut partition, _part_type) = updater
+    let (mut partition, part_type) = updater
         .next_partition()
         .map_err(|_| OtaError::InvalidPartitionTable)?;
 
+    let content_length = conn.content_length();
+    println!("ota: target partition {:?}, content_length={}", part_type, content_length);
+
     let part_capacity = partition.capacity() as u32;
     let erase_size =
-        conn.content_length().saturating_add(ERASE_SECTOR - 1) / ERASE_SECTOR * ERASE_SECTOR;
+        content_length.saturating_add(ERASE_SECTOR - 1) / ERASE_SECTOR * ERASE_SECTOR;
     let erase_size = erase_size.min(part_capacity);
+    println!("ota: erasing {} bytes", erase_size);
     if partition.erase(0, erase_size).is_err() {
         return Err(OtaError::Erase);
     }
@@ -59,6 +63,8 @@ pub(crate) async fn update_from_http(
     let mut received: usize = 0;
     let mut tail = [0xFFu8; ALIGN];
     let mut tail_len: usize = 0;
+    let mut first_bytes: [u8; 4] = [0; 4];
+    let mut chunk_count: u32 = 0;
 
     let mut is_eof = false;
     while !is_eof {
@@ -66,6 +72,10 @@ pub(crate) async fn update_from_http(
             if chunk.is_empty() {
                 is_eof = true;
             } else {
+                // Capture first 4 bytes for debugging
+                if received == 0 && chunk.len() >= 4 {
+                    first_bytes.copy_from_slice(&chunk[..4]);
+                }
                 write_aligned_data(
                     &mut partition,
                     chunk,
@@ -75,14 +85,25 @@ pub(crate) async fn update_from_http(
                 )
                 .unwrap();
                 received += chunk.len();
+                chunk_count += 1;
             }
         })
         .await
         .map_err(|_| OtaError::Read)?;
     }
 
+    println!(
+        "ota: received {} bytes in {} chunks, written {} bytes",
+        received, chunk_count, written
+    );
+    println!(
+        "ota: first 4 bytes: {:02X} {:02X} {:02X} {:02X}",
+        first_bytes[0], first_bytes[1], first_bytes[2], first_bytes[3]
+    );
+
     // Write final tail
     if tail_len > 0 {
+        println!("ota: writing final tail of {} bytes", tail_len);
         partition
             .write(written, &tail)
             .map_err(|_| OtaError::Write)?;
@@ -93,6 +114,7 @@ pub(crate) async fn update_from_http(
         .and_then(|()| updater.set_current_ota_state(OtaImageState::New))
         .map_err(|_| OtaError::Activate)?;
 
+    println!("ota: update complete, activating partition");
     Ok(())
 }
 

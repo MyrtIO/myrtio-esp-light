@@ -194,6 +194,25 @@ impl PersistenceHandler for AppPersistentStorage {
         data.reboot_count = boot_count;
         self.save_raw_data(&data)
     }
+
+    fn get_reboot_count(&self) -> Option<u8> {
+        let data = self.get_raw_data()?;
+        Some(data.reboot_count)
+    }
+
+    fn increment_reboot_count(&mut self) -> Option<u8> {
+        let mut data = self.get_raw_data()?;
+        data.reboot_count += 1;
+        self.save_raw_data(&data)?;
+
+        Some(data.reboot_count)
+    }
+
+    fn reset_reboot_count(&mut self) -> Option<()> {
+        let mut data = self.get_raw_data()?;
+        data.reboot_count = 0;
+        self.save_raw_data(&data)
+    }
 }
 
 /// Get the length of a string from a byte array

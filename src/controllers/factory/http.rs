@@ -5,6 +5,8 @@ use heapless::String;
 use super::CONFIGURATION_USECASES;
 use crate::config::{self, DeviceConfig};
 use crate::domain::dto::SystemInformation;
+use crate::domain::ports::BootManagerPort;
+use crate::infrastructure::repositories::BootManager;
 use crate::infrastructure::services::http::HttpResult;
 use crate::infrastructure::services::http::connection::HttpConnection;
 
@@ -32,6 +34,7 @@ impl HttpHandler for FactoryHttpController {
             (HttpMethod::Get, "/api/system") => handle_get_system_information(conn).await,
             (HttpMethod::Get, "/api/configuration") => handle_get_configuration(conn).await,
             (HttpMethod::Post, "/api/configuration") => handle_set_configuration(conn).await,
+            (HttpMethod::Post, "/api/boot") => handle_boot(conn, self.flash).await,
             (HttpMethod::Post, "/api/ota") => handle_ota_update(conn, self.flash).await,
             _ => serve_404(conn).await,
         }
@@ -83,6 +86,12 @@ async fn handle_set_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
         conn.write_headers(&ResponseHeaders::bad_request()).await?;
     }
 
+    Ok(())
+}
+
+async fn handle_boot(mut conn: HttpConnection<'_>, flash: *mut FlashStorage<'static>) -> HttpResult {
+    let mut boot_manager = BootManager::new(flash);
+    boot_manager.boot_system().unwrap();
     Ok(())
 }
 

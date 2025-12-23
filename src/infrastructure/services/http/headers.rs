@@ -316,12 +316,15 @@ pub(super) fn find_content_length(header: &str) -> Option<u32> {
     for line in header.lines() {
         let lower = line.to_ascii_lowercase();
         if lower.starts_with(TARGET) {
-            let length = line[TARGET.len()..].trim().parse::<u64>().ok()?;
+            let value_str = line[TARGET.len()..].trim();
+            let length = value_str.parse::<u64>().ok()?;
+            esp_println::println!("http: found Content-Length: {}", length);
             if length > u32::MAX as u64 {
                 return None;
             }
             return Some(length as u32);
         }
     }
+    esp_println::println!("http: Content-Length header not found");
     None
 }

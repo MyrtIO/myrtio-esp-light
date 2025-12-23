@@ -7,4 +7,5 @@ export interface ApiService {
   saveConfiguration(configuration: Configuration): Promise<void>;
   getSystemInformation(): Promise<SystemInformation>;
   updateFirmware(file: File, onProgress: ProgressCallback): Promise<void>;
+  bootSystem(): Promise<void>;
 }

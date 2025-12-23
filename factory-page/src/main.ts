@@ -24,7 +24,7 @@ async function main() {
     ? new MockApiService()
     : new FetchApiService("/api");
 
-  const systemForm = new SystemBlock(systemSection, onFirmwareUpdate);
+  const systemForm = new SystemBlock(systemSection, onFirmwareUpdate, onBoot);
   const headerBlock = new HeaderBlock(header, onConfigurationSave);
   const configurationForm = new ConfigurationBlock(
     configForm,
@@ -33,6 +33,11 @@ async function main() {
 
   function onConfigurationDirty() {
     headerBlock.showSaveButton();
+  }
+
+  async function onBoot() {
+    await api.bootSystem();
+    alert("Система запущена, устройство загрузится в течение 30 секунд");
   }
 
   async function onConfigurationSave(e: Event) {

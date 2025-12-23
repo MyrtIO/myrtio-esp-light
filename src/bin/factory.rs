@@ -15,6 +15,8 @@ use embassy_time::Duration;
 
 use esp_alloc as _;
 use esp_backtrace as _;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::peripherals::GPIO2;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 use esp_println::println;
 use esp_storage::FlashStorage;
@@ -26,7 +28,8 @@ use myrtio_esp_light::controllers::init_factory_controllers;
 use myrtio_esp_light::infrastructure::drivers::init_network_stack_ap;
 use myrtio_esp_light::infrastructure::repositories::AppPersistentStorage;
 use myrtio_esp_light::infrastructure::tasks::factory::{
-    dhcp_server_task, factory_network_runner_task, factory_wifi_ap_task, http_server_task,
+    blink_task, dhcp_server_task, factory_network_runner_task, factory_wifi_ap_task,
+    http_server_task,
 };
 use myrtio_esp_light::mk_static;
 
@@ -55,6 +58,9 @@ async fn main(spawner: Spawner) -> ! {
     // Start RTOS
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
+
+    // Spawn blink task
+    spawner.spawn(blink_task(peripherals.GPIO2)).ok();
 
     // Initialize flash storage (shared between HTTP server for config and OTA)
     let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));

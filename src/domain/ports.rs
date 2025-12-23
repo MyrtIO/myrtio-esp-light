@@ -17,9 +17,7 @@ pub trait LightIntentApplier {
 }
 
 /// Port interface for the light usecases
-pub trait LightUsecasesPort:
-    LightStateReader + LightIntentApplier + Sync + Send
-{
+pub trait LightUsecasesPort: LightStateReader + LightIntentApplier + Sync + Send {
     fn apply_intent_and_persist(&mut self, intent: LightChangeIntent) -> Result<(), ()>;
 }
 
@@ -45,9 +43,18 @@ pub(crate) trait PersistentLightStateUpdater {
 // }
 
 /// Trait for the boot controller
-pub trait OnBootHandler: Sync + Send {
-    /// On boot
-    fn on_boot(&self, stored_state: Option<LightState>);
+pub trait OnBootHandler {
+    /// Called when the boot process starts
+    fn on_boot_start(&mut self);
+
+    /// Called when the light is ready
+    fn on_light_ready(&mut self);
+
+    /// Called when the boot process ends
+    fn on_boot_end(&mut self);
+
+    /// Called when the magic timeout occurs. This is a fallback mechanism to ensure the boot process completes if the firmware is corrupted.
+    fn on_magic_timeout(&mut self);
 }
 
 pub trait PersistenceHandler: Sync + Send {
@@ -62,6 +69,15 @@ pub trait PersistenceHandler: Sync + Send {
 
     /// Persist the boot count
     fn persist_boot_count(&mut self, boot_count: u8) -> Option<()>;
+
+    /// Get the reboot count
+    fn get_reboot_count(&self) -> Option<u8>;
+
+    /// Set the reboot count
+    fn increment_reboot_count(&mut self) -> Option<u8>;
+
+    /// Reset the reboot count
+    fn reset_reboot_count(&mut self) -> Option<()>;
 }
 
 pub trait ConfigurationUsecasesPort: Sync + Send {
@@ -72,7 +88,10 @@ pub trait ConfigurationUsecasesPort: Sync + Send {
     fn set_device_config(&mut self, config: &DeviceConfig) -> Option<()>;
 }
 
-// pub trait OtaUsecasesPort: Sync + Send {
-//     /// Update the firmware from the HTTP server
-//     async fn update_from_http(&mut self, conn: &mut HttpConnection<'_>) -> Result<(), OtaError>;
-// }
+pub trait BootManagerPort {
+    /// Get the boot slot
+    fn boot_system(&mut self) -> Option<()>;
+
+    /// Reboot the system
+    fn boot_factory(&mut self) -> Option<()>;
+}

@@ -50,7 +50,9 @@ impl<'a> HttpConnection<'a> {
         let (header_end, header_len) = read_heading(header_buf.as_mut_slice(), &mut socket).await?;
         header_buf.truncate(header_len);
 
-        let header_str = unsafe { str::from_utf8_unchecked(header_buf.as_slice()) };
+        // Only parse the headers portion (before body data) to avoid UB with binary data
+        let headers_only = &header_buf.as_slice()[..header_end];
+        let header_str = core::str::from_utf8(headers_only).map_err(|_| HttpError::Parse)?;
         let (method, raw_path, rest_headers) =
             parse_request_line(header_str).ok_or(HttpError::Parse)?;
         let content_length = find_content_length(rest_headers).unwrap_or(0);
@@ -196,6 +198,7 @@ impl AsyncChunkedReader for HttpConnection<'_> {
     #[allow(clippy::cast_possible_truncation)]
     async fn read_and_then(&mut self, op: impl FnOnce(&[u8])) -> HttpResult {
         if self.content_length == 0 {
+            esp_println::println!("http: content_length is 0, returning NoData");
             return Err(HttpError::NoData);
         }
 
@@ -206,11 +209,17 @@ impl AsyncChunkedReader for HttpConnection<'_> {
         self.body_buf.clear();
 
         if self.header_buf.len() > self.header_end {
+            let trailer_len = self.header_buf.len() - self.header_end;
             for i in self.header_end..self.header_buf.len() {
                 self.body_buf.push(self.header_buf[i]).unwrap();
             }
             self.header_buf.truncate(self.header_end);
             self.received += self.body_buf.len() as u32;
+            esp_println::println!(
+                "http: header trailer {} bytes, received={}",
+                trailer_len,
+                self.received
+            );
 
             op(self.body_buf.as_slice());
             return Ok(());
@@ -222,6 +231,11 @@ impl AsyncChunkedReader for HttpConnection<'_> {
 
         let n = self.socket.read(self.body_buf.as_mut_slice()).await?;
         if n == 0 {
+            esp_println::println!(
+                "http: socket returned 0, received={}/{}",
+                self.received,
+                self.content_length
+            );
             op(&[]);
             return Ok(());
         }

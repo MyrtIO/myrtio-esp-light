@@ -45,6 +45,10 @@ run *ARGS:
         --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
+ota:
+    curl -X POST http://192.168.4.1/api/ota -F "file=@target/xtensa-esp32-none-elf/release/myrtio-esp-light-app.ota.bin"
+
+
 run-factory-page *ARGS:
     cd factory-page && VITE_MOCK_API=true bun run dev -- {{ARGS}}
 

@@ -12,8 +12,9 @@ export class SystemBlock {
   private block: HTMLElement;
   private otaButton: HTMLButtonElement;
   private otaFile: HTMLInputElement;
+  private bootButton: HTMLButtonElement;
 
-  constructor(section: HTMLElement, onOta: (file: File) => void) {
+  constructor(section: HTMLElement, onOta: (file: File) => void, onBoot: () => void) {
     const $ = <T extends HTMLElement = HTMLDivElement>(selector: string): T => {
       const element = section.querySelector<T>(selector);
       if (!element) {
@@ -28,6 +29,7 @@ export class SystemBlock {
     this.macAddress = $("#mac-address");
     this.otaButton = $("#button-ota");
     this.otaFile = $("#ota-file");
+    this.bootButton = $("#button-boot");
 
     this.otaButton.addEventListener("click", (e) => {
       e.preventDefault();
@@ -40,6 +42,11 @@ export class SystemBlock {
         return;
       }
       onOta(file);
+    });
+
+    this.bootButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      onBoot();
     });
   }
 

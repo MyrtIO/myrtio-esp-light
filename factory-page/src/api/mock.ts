@@ -56,6 +56,12 @@ export class MockApiService implements ApiService {
     }
     return;
   }
+
+  async bootSystem(): Promise<void> {
+    console.log(`[mock] booting system`);
+    await simulateNetworkDelay();
+    return;
+  }
 }
 
 function simulateNetworkDelay(
