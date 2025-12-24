@@ -1,29 +1,22 @@
-CARGO_CONFIG := 'unstable.build-std = ["alloc", "core"]'
-PARTITION_TABLE := 'partitions.csv'
+# App variables
+APP_MAIN_NAME := "myrtio-esp-light-app"
+APP_FACTORY_NAME := "myrtio-esp-light-factory"
+APP_TARGET := "xtensa-esp32-none-elf"
+
+# Build paths
+TARGET_PATH := "target" / APP_TARGET
+APP_RELEASE_PATH := TARGET_PATH / "release" / APP_MAIN_NAME
+OTA_PATH := APP_RELEASE_PATH + ".bin"
+
+# Internal variables
+PARTITION_TABLE := "partitions.csv"
 
 build-app *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
-
     cargo build \
-        --bin myrtio-esp-light-app \
-        --config '{{CARGO_CONFIG}}' \
+        --bin {{APP_MAIN_NAME}} \
         {{ARGS}}
-
-build-ota *ARGS:
-    #!/bin/bash
-    just build-app --release
-
-    release_path="target/xtensa-esp32-none-elf/release/myrtio-esp-light-app"
-    ota_path="$release_path.ota.bin"
-
-    echo "Creating OTA image..."
-    espflash save-image \
-        --chip esp32 \
-        --partition-table={{PARTITION_TABLE}} \
-        $release_path \
-        $ota_path
-
 
 build-factory *ARGS:
     #!/bin/bash
@@ -31,8 +24,7 @@ build-factory *ARGS:
 
     cargo build \
         --release \
-        --bin myrtio-esp-light-factory \
-        --config '{{CARGO_CONFIG}}' \
+        --bin {{APP_FACTORY_NAME}} \
         {{ARGS}}
 
 run *ARGS:
@@ -40,14 +32,19 @@ run *ARGS:
     source $HOME/export-esp.sh
 
     cargo run \
-        --bin myrtio-esp-light-factory \
+        --bin {{APP_FACTORY_NAME}} \
         --release \
-        --config '{{CARGO_CONFIG}}' \
         {{ARGS}}
 
-ota:
-    curl -X POST http://192.168.4.1/api/ota -F "file=@target/xtensa-esp32-none-elf/release/myrtio-esp-light-app.ota.bin"
-
+ota: build-app
+    @espflash save-image \
+        --chip esp32 \
+        --partition-table={{PARTITION_TABLE}} \
+        {{APP_RELEASE_PATH}} \
+        {{OTA_PATH}}
+    @echo "Sending app..."
+    @curl -X POST http://192.168.4.1/api/ota \
+        --data-binary "@{{OTA_PATH}}"
 
 run-factory-page *ARGS:
     cd factory-page && VITE_MOCK_API=true bun run dev -- {{ARGS}}
@@ -55,11 +52,10 @@ run-factory-page *ARGS:
 lint *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
-
     cargo clippy {{ARGS}}
 
 lint-fix *ARGS:
-    #!/bin/bash
-    source $HOME/export-esp.sh
+    just lint --fix --allow-dirty {{ARGS}}
 
-    cargo clippy --fix --allow-dirty {{ARGS}}
+monitor:
+    espflash monitor
