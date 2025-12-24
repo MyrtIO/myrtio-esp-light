@@ -3,16 +3,32 @@
 //! Configures and maintains the Wi-Fi controller in Access Point mode
 //! for the factory provisioning interface.
 
-use embassy_net::Runner;
-use embassy_net::udp::{PacketMetadata, UdpSocket};
-use embassy_net::{Ipv4Address, Stack};
+use embassy_net::{
+    Ipv4Address,
+    Runner,
+    Stack,
+    udp::{PacketMetadata, UdpSocket},
+};
 use esp_println::println;
-use esp_radio::wifi::{AccessPointConfig, AuthMethod, ModeConfig, WifiController, WifiDevice};
+use esp_radio::wifi::{
+    AccessPointConfig,
+    AuthMethod,
+    ModeConfig,
+    WifiController,
+    WifiDevice,
+};
 
-use crate::config::hardware_id;
-use crate::infrastructure::services::dhcp::{
-    DHCP_ACK, DHCP_DISCOVER, DHCP_OFFER, DHCP_REQUEST, allocate_ip, build_dhcp_response,
-    parse_dhcp_request,
+use crate::{
+    config::hardware_id,
+    core::net::dhcp::{
+        DHCP_ACK,
+        DHCP_DISCOVER,
+        DHCP_OFFER,
+        DHCP_REQUEST,
+        allocate_ip,
+        build_dhcp_response,
+        parse_dhcp_request,
+    },
 };
 
 /// Format the SSID with chip ID suffix
@@ -24,7 +40,7 @@ fn format_ssid(chip_id: u32) -> heapless::String<32> {
 }
 
 /// Default SSID prefix for the factory AP
-const AP_SSID_PREFIX: &str = "MyrtIO-Setup";
+const AP_SSID_PREFIX: &str = "MyrtIO Светильник";
 
 /// DHCP server and client ports
 const DHCP_SERVER_PORT: u16 = 67;
@@ -60,7 +76,9 @@ pub async fn factory_wifi_ap_task(mut controller: WifiController<'static>) {
 
 /// Background task for running the network stack
 #[embassy_executor::task]
-pub async fn factory_network_runner_task(mut runner: Runner<'static, WifiDevice<'static>>) {
+pub async fn factory_network_runner_task(
+    mut runner: Runner<'static, WifiDevice<'static>>,
+) {
     runner.run().await;
 }
 
@@ -122,8 +140,12 @@ pub async fn dhcp_server_task(stack: Stack<'static>) {
                 };
 
                 // Build response
-                let response_len =
-                    build_dhcp_response(&mut packet, &request, offered_ip, response_type);
+                let response_len = build_dhcp_response(
+                    &mut packet,
+                    &request,
+                    offered_ip,
+                    response_type,
+                );
 
                 // Send to broadcast on client port
                 let dest = (Ipv4Address::BROADCAST, DHCP_CLIENT_PORT);

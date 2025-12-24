@@ -1,7 +1,7 @@
 use heapless::String;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
-use crate::domain::entity::LightState;
+use crate::{config::DeviceConfig, domain::entity::LightState};
 
 /// Represents a user intent to change the light state.
 ///
@@ -85,4 +85,10 @@ impl From<LightState> for LightChangeIntent {
 pub struct SystemInformation {
     pub build_version: String<32>,
     pub mac_address: [u8; 6],
+}
+
+#[derive(Debug)]
+pub enum PersistentData {
+    LightState(LightState),
+    DeviceConfig(DeviceConfig),
 }

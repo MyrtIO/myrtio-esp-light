@@ -1,14 +1,18 @@
-use heapless::{String, Vec};
-
 use embassy_net::{
-    DhcpConfig, IpAddress, Ipv4Address, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4,
+    DhcpConfig,
+    IpAddress,
+    Ipv4Address,
+    Ipv4Cidr,
+    Runner,
+    Stack,
+    StackResources,
+    StaticConfigV4,
     dns::DnsQueryType,
 };
 use embassy_time::{Duration, Timer};
-use esp_hal::peripherals::WIFI;
-use esp_hal::rng::Rng;
+use esp_hal::{peripherals::WIFI, rng::Rng};
 use esp_radio::wifi::{Config as WifiConfig, WifiController, WifiDevice};
-
+use heapless::{String, Vec};
 use static_cell::make_static;
 
 use crate::config::hardware_id;
@@ -115,7 +119,10 @@ pub async fn wait_for_connection(stack: Stack<'_>) -> embassy_net::StaticConfigV
 }
 
 /// Resolves a hostname to an IP address
-pub(crate) async fn resolve_host(stack: Stack<'static>, host: &str) -> Result<IpAddress, ()> {
+pub(crate) async fn resolve_host(
+    stack: Stack<'static>,
+    host: &str,
+) -> Result<IpAddress, ()> {
     if let Ok(ip) = host.parse::<embassy_net::Ipv4Address>() {
         return Ok(IpAddress::Ipv4(ip));
     }

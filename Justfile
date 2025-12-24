@@ -59,3 +59,6 @@ lint-fix *ARGS:
 
 monitor:
     espflash monitor
+
+format *ARGS:
+    cargo fmt {{ARGS}}

@@ -1,11 +1,14 @@
-use static_cell::make_static;
-
-use esp_hal::xtensa_lx::interrupt;
-use esp_hal::{gpio::interconnect::PeripheralOutput, peripherals::RMT, rmt::Rmt, time::Rate};
+use esp_hal::{
+    gpio::interconnect::PeripheralOutput,
+    peripherals::RMT,
+    rmt::Rmt,
+    time::Rate,
+    xtensa_lx::interrupt,
+};
 use esp_hal_smartled::{SmartLedsAdapter, buffer_size, smart_led_buffer};
-use smart_leds::SmartLedsWrite;
-
 use myrtio_light_composer::{LedDriver, Rgb};
+use smart_leds::SmartLedsWrite;
+use static_cell::make_static;
 
 pub(crate) const MAX_LED_COUNT: usize = 128;
 

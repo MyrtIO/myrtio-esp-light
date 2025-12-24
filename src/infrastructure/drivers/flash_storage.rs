@@ -7,6 +7,7 @@ use core::{marker::PhantomData, mem};
 
 use bytemuck::Pod;
 use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
+use esp_println::println;
 use esp_storage::FlashStorage;
 
 const MAGIC_HEADER: u16 = 0xBEEF;
@@ -44,15 +45,20 @@ impl<T: Pod> EspPersistentStorage<T> {
                 let magic = u16::from_le_bytes([buffer[0], buffer[1]]);
                 if magic == MAGIC_HEADER {
                     let data_end = MAGIC_HEADER_SIZE + mem::size_of::<T>();
-                    // Use pod_read_unaligned because data starts after 2-byte magic header
-                    // which may not be aligned to T's alignment requirements
-                    let data: T =
-                        bytemuck::pod_read_unaligned(&buffer[MAGIC_HEADER_SIZE..data_end]);
+                    // Use pod_read_unaligned because data starts after 2-byte magic
+                    // header which may not be aligned to T's
+                    // alignment requirements
+                    let data: T = bytemuck::pod_read_unaligned(
+                        &buffer[MAGIC_HEADER_SIZE..data_end],
+                    );
 
                     return Ok(data);
                 }
+                #[cfg(feature = "log")]
+                println!("Invalid magic header: {:?}", magic);
             }
-            Err(_) => {
+            Err(e) => {
+                println!("{:?}", e);
                 return Err(StorageError::DriverError);
             }
         }
@@ -83,8 +89,3 @@ impl<T: Pod> EspPersistentStorage<T> {
             .map_err(|_| StorageError::DriverError)
     }
 }
-
-// // Safety: This driver is only used by the flash actor task which is the sole flash owner.
-// // The raw pointer is never accessed concurrently from multiple tasks.
-// unsafe impl<const SIZE: usize> Send for EspNorFlashStorageDriver<SIZE> {}
-// unsafe impl<const SIZE: usize> Sync for EspNorFlashStorageDriver<SIZE> {}

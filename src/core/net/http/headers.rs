@@ -2,7 +2,9 @@ use core::fmt::Write;
 
 use embassy_net::tcp::{Error as TcpError, TcpSocket};
 
-fn reason_phrase(code: u16) -> &'static str {
+pub(crate) type StatusCode = u16;
+
+fn reason_phrase(code: StatusCode) -> &'static str {
     match code {
         200 => "OK",
         201 => "Created",
@@ -22,13 +24,13 @@ fn reason_phrase(code: u16) -> &'static str {
 
 /// HTTP Content Encoding.
 #[derive(Debug)]
-pub enum ContentEncoding {
+pub(crate) enum ContentEncoding {
     Gzip,
 }
 
 impl ContentEncoding {
     /// Convert the content encoding to a string.
-    pub fn as_str(&self) -> &'static str {
+    pub(super) fn as_str(&self) -> &'static str {
         match self {
             ContentEncoding::Gzip => "gzip",
         }
@@ -37,22 +39,20 @@ impl ContentEncoding {
 
 /// HTTP Content Type.
 #[derive(Debug)]
-pub enum ContentType {
+pub(crate) enum ContentType {
     Json,
     TextHtml,
-    TextPlain,
-    ApplicationOctetStream,
 }
 
 /// Text Encoding.
 #[derive(Debug)]
-pub enum TextEncoding {
+pub(crate) enum TextEncoding {
     Utf8,
 }
 
 impl TextEncoding {
     /// Convert the text encoding to a string.
-    pub fn as_str(&self) -> &'static str {
+    pub(crate) fn as_str(&self) -> &'static str {
         match self {
             TextEncoding::Utf8 => "utf-8",
         }
@@ -61,37 +61,35 @@ impl TextEncoding {
 
 impl ContentType {
     /// Convert the content type to a string.
-    fn as_str(&self) -> &'static str {
+    pub(super) fn as_str(&self) -> &'static str {
         match self {
             ContentType::Json => "application/json",
             ContentType::TextHtml => "text/html",
-            ContentType::TextPlain => "text/plain",
-            ContentType::ApplicationOctetStream => "application/octet-stream",
         }
     }
 }
 
 /// HTTP socket connection policy.
 #[derive(Debug)]
-pub enum ConnectionPolicy {
+pub(super) enum ConnectionPolicy {
     Close,
 }
 
 impl ConnectionPolicy {
     /// Convert the connection type to a string.
-    fn as_str(&self) -> &'static str {
+    pub(super) fn as_str(&self) -> &'static str {
         match self {
             ConnectionPolicy::Close => "close",
         }
     }
 }
 
-pub trait BufferedWriter {
+pub(super) trait TargetWriter {
     fn write_to(&self, writer: &mut impl Write) -> Result<(), core::fmt::Error>;
 }
 
 /// HTTP Content Headers.
-pub struct ContentHeaders {
+pub(crate) struct ContentHeaders {
     content_type: ContentType,
     content_encoding: Option<ContentEncoding>,
     content_length: Option<usize>,
@@ -100,7 +98,7 @@ pub struct ContentHeaders {
 
 impl ContentHeaders {
     /// Create a new content headers with a content type.
-    pub const fn new_with_content_type(content_type: ContentType) -> Self {
+    pub(crate) const fn new(content_type: ContentType) -> Self {
         Self {
             content_type,
             content_encoding: None,
@@ -111,27 +109,30 @@ impl ContentHeaders {
 
     /// Set the content encoding.
     #[must_use]
-    pub const fn with_content_encoding(mut self, content_encoding: ContentEncoding) -> Self {
-        self.content_encoding = Some(content_encoding);
+    pub(crate) const fn with_encoding(mut self, encoding: ContentEncoding) -> Self {
+        self.content_encoding = Some(encoding);
         self
     }
 
     /// Set the content length.
     #[must_use]
-    pub const fn with_content_length(mut self, content_length: usize) -> Self {
-        self.content_length = Some(content_length);
+    pub(crate) const fn with_length(mut self, length: usize) -> Self {
+        self.content_length = Some(length);
         self
     }
 
     /// Set the text encoding.
     #[must_use]
-    pub const fn with_text_encoding(mut self, text_encoding: TextEncoding) -> Self {
+    pub(crate) const fn with_text_encoding(
+        mut self,
+        text_encoding: TextEncoding,
+    ) -> Self {
         self.text_encoding = Some(text_encoding);
         self
     }
 }
 
-impl BufferedWriter for ContentHeaders {
+impl TargetWriter for ContentHeaders {
     fn write_to(&self, writer: &mut impl Write) -> Result<(), core::fmt::Error> {
         write!(writer, "Content-Type: {}", self.content_type.as_str())?;
         if let Some(text_encoding) = &self.text_encoding {
@@ -153,15 +154,15 @@ impl BufferedWriter for ContentHeaders {
 }
 
 /// Response Headers.
-pub struct ResponseHeaders {
-    status: u16,
+pub(crate) struct ResponseHeaders {
+    status: StatusCode,
     connection: ConnectionPolicy,
     content: Option<ContentHeaders>,
 }
 
 impl ResponseHeaders {
     /// Create empty response headers.
-    pub const fn empty() -> Self {
+    pub(crate) const fn empty() -> Self {
         Self {
             status: 0,
             content: None,
@@ -170,56 +171,51 @@ impl ResponseHeaders {
     }
 
     /// Create empty response headers with a status code.
-    pub const fn from_code(code: u16) -> Self {
+    pub(crate) const fn from_code(code: StatusCode) -> Self {
         Self::empty().with_code(code)
     }
 
     /// Set the success status code.
-    pub const fn success() -> Self {
+    pub(crate) const fn success() -> Self {
         Self::from_code(200)
     }
 
     /// Set the success no content status code.
-    pub const fn success_no_content() -> Self {
+    pub(crate) const fn success_no_content() -> Self {
         Self::from_code(204)
     }
 
     /// Set the not found status code.
-    pub const fn not_found() -> Self {
+    pub(crate) const fn not_found() -> Self {
         Self::from_code(404)
     }
 
     /// Set the internal server error status code.
-    pub const fn internal_error() -> Self {
+    pub(crate) const fn internal_error() -> Self {
         Self::from_code(500)
     }
 
     /// Set the bad request status code.
-    pub const fn bad_request() -> Self {
+    pub(crate) const fn bad_request() -> Self {
         Self::from_code(400)
-    }
-
-    /// Set the too large status code.
-    pub const fn too_large() -> Self {
-        Self::from_code(413)
     }
 
     /// Set the content headers.
     #[must_use]
-    pub const fn with_content(mut self, content: ContentHeaders) -> Self {
+    pub(crate) const fn with_content(mut self, content: ContentHeaders) -> Self {
         self.content = Some(content);
         self
     }
 
     /// Set the status code.
     #[must_use]
-    pub const fn with_code(mut self, code: u16) -> Self {
+    pub(crate) const fn with_code(mut self, code: StatusCode) -> Self {
         self.status = code;
         self
     }
 }
 
-impl BufferedWriter for ResponseHeaders {
+impl TargetWriter for ResponseHeaders {
     /// Write the response headers to a writer.
     fn write_to(&self, writer: &mut impl Write) -> Result<(), core::fmt::Error> {
         let reason = reason_phrase(self.status);
@@ -235,7 +231,7 @@ impl BufferedWriter for ResponseHeaders {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum HttpMethod {
+pub(crate) enum HttpMethod {
     Get,
     Post,
     Put,
@@ -243,14 +239,13 @@ pub enum HttpMethod {
     Patch,
     Options,
     Head,
-    // Not supported for now
-    // Trace,
-    // Connect,
-    // Upgrade,
+    Trace,
+    Connect,
+    Upgrade,
 }
 
 impl HttpMethod {
-    pub(crate) fn parse(s: &str) -> Option<Self> {
+    pub(super) fn parse(s: &str) -> Option<Self> {
         Some(match s {
             "GET" => HttpMethod::Get,
             "POST" => HttpMethod::Post,
@@ -259,6 +254,9 @@ impl HttpMethod {
             "PATCH" => HttpMethod::Patch,
             "OPTIONS" => HttpMethod::Options,
             "HEAD" => HttpMethod::Head,
+            "TRACE" => HttpMethod::Trace,
+            "CONNECT" => HttpMethod::Connect,
+            "UPGRADE" => HttpMethod::Upgrade,
             _ => return None,
         })
     }
@@ -267,7 +265,9 @@ impl HttpMethod {
 /// Parse the request line from the header string.
 ///
 /// Returns the method, path, and rest of the header string.
-pub(super) fn parse_request_line(header_str: &str) -> Option<(HttpMethod, &str, &str)> {
+pub(super) fn parse_request_line(
+    header_str: &str,
+) -> Option<(HttpMethod, &str, &str)> {
     let line_end = header_str.find("\r\n").unwrap_or(header_str.len());
     let first_line = &header_str[..line_end];
     let mut parts: core::str::SplitWhitespace<'_> = first_line.split_whitespace();
@@ -294,7 +294,9 @@ pub(super) async fn read_heading(
         }
         header_len += n;
         // Check for end of headers
-        if let Some(pos) = buf[..header_len].windows(4).position(|w| w == b"\r\n\r\n") {
+        if let Some(pos) =
+            buf[..header_len].windows(4).position(|w| w == b"\r\n\r\n")
+        {
             header_end = Some(pos + 4);
             break;
         }
@@ -311,6 +313,7 @@ pub(super) async fn read_heading(
 /// Find the content length in the header string.
 ///
 /// Returns the content length if found, otherwise None.
+#[allow(clippy::cast_possible_truncation)]
 pub(super) fn find_content_length(header: &str) -> Option<u32> {
     const TARGET: &str = "content-length:";
     for line in header.lines() {
@@ -319,7 +322,7 @@ pub(super) fn find_content_length(header: &str) -> Option<u32> {
             let value_str = line[TARGET.len()..].trim();
             let length = value_str.parse::<u64>().ok()?;
             esp_println::println!("http: found Content-Length: {}", length);
-            if length > u32::MAX as u64 {
+            if length > u64::from(u32::MAX) {
                 return None;
             }
             return Some(length as u32);

@@ -53,3 +53,19 @@ impl Default for LightState {
         Self::new()
     }
 }
+
+/// Represents the boot sector slot.
+#[derive(Debug, Clone, Copy)]
+pub enum BootSlot {
+    System,
+    Factory,
+}
+
+impl BootSlot {
+    pub(crate) const fn as_u8(self) -> u8 {
+        match self {
+            BootSlot::System => 0,
+            BootSlot::Factory => 1,
+        }
+    }
+}

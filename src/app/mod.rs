@@ -1,3 +1,3 @@
 mod usecases;
 
-pub use usecases::{LightUsecases, ConfigurationUsecases };
+pub use usecases::*;

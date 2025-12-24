@@ -1,24 +1,31 @@
-use esp_bootloader_esp_idf::ota::Ota;
-use esp_bootloader_esp_idf::ota_updater::OtaUpdater;
-use esp_bootloader_esp_idf::partitions::{
-    AppPartitionSubType, DataPartitionSubType, PartitionType, read_partition_table,
+use esp_bootloader_esp_idf::{
+    ota::Ota,
+    partitions::{
+        AppPartitionSubType,
+        DataPartitionSubType,
+        PartitionType,
+        read_partition_table,
+    },
 };
 use esp_storage::FlashStorage;
 
-use crate::domain::ports::BootManagerPort;
+use crate::domain::{entity::BootSlot, ports};
 
-enum BootSlot {
-    Unknown,
-    Factory,
-    Slot0,
+impl From<BootSlot> for AppPartitionSubType {
+    fn from(slot: BootSlot) -> Self {
+        match slot {
+            BootSlot::Factory => AppPartitionSubType::Factory,
+            BootSlot::System => AppPartitionSubType::Ota0,
+        }
+    }
 }
 
-impl BootSlot {
-    pub fn partition_sub_type(self) -> AppPartitionSubType {
-        match self {
-            BootSlot::Factory => AppPartitionSubType::Factory,
-            BootSlot::Slot0 => AppPartitionSubType::Ota0,
-            BootSlot::Unknown => unreachable!(),
+impl From<AppPartitionSubType> for BootSlot {
+    fn from(sub_type: AppPartitionSubType) -> Self {
+        match sub_type {
+            AppPartitionSubType::Factory => BootSlot::Factory,
+            AppPartitionSubType::Ota0 => BootSlot::System,
+            _ => BootSlot::Factory,
         }
     }
 }
@@ -30,22 +37,6 @@ pub struct BootManager {
 impl BootManager {
     pub fn new(flash: *mut FlashStorage<'static>) -> Self {
         Self { flash }
-    }
-
-    pub fn get_boot_slot(&self) -> BootSlot {
-        let ota = self.with_ota(|mut ota| ota.current_app_partition().unwrap());
-        match ota {
-            AppPartitionSubType::Factory => BootSlot::Factory,
-            AppPartitionSubType::Ota0 => BootSlot::Slot0,
-            _ => BootSlot::Unknown,
-        }
-    }
-
-    pub fn set_boot_slot(&self, slot: BootSlot) {
-        self.with_ota(|mut ota| {
-            ota.set_current_app_partition(slot.partition_sub_type())
-                .unwrap();
-        });
     }
 
     fn with_ota<R>(&self, f: impl FnOnce(Ota<'_, FlashStorage<'static>>) -> R) -> R {
@@ -62,14 +53,24 @@ impl BootManager {
     }
 }
 
-impl BootManagerPort for BootManager {
-    fn boot_system(&mut self) -> Option<()> {
-        self.set_boot_slot(BootSlot::Slot0);
-        esp_hal::system::software_reset();
+impl ports::BootSectorWriter for BootManager {
+    fn write_boot_sector(
+        &mut self,
+        slot: BootSlot,
+    ) -> Result<(), ports::FirmwareError> {
+        self.with_ota(|mut ota| {
+            ota.set_current_app_partition(slot.into())
+                .map_err(|_| ports::FirmwareError::InvalidPartitionTable)
+        })
     }
+}
 
-    fn boot_factory(&mut self) -> Option<()> {
-        self.set_boot_slot(BootSlot::Factory);
-        esp_hal::system::software_reset();
+impl ports::BootSectorReader for BootManager {
+    fn read_boot_sector(&mut self) -> Result<BootSlot, ports::FirmwareError> {
+        let sub_type = self.with_ota(|mut ota| {
+            ota.current_app_partition()
+                .map_err(|_| ports::FirmwareError::InvalidPartitionTable)
+        });
+        sub_type.map(|sub_type| sub_type.into())
     }
 }

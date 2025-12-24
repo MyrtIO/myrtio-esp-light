@@ -1,16 +1,17 @@
 //! DHCP Protocol Implementation
 //!
-//! Provides DHCP message parsing and response building for a simple stateless server.
+//! Provides DHCP message parsing and response building for a simple stateless
+//! server.
 
 use embassy_net::Ipv4Address;
 
 use crate::infrastructure::drivers::AP_IP_ADDRESS;
 
 /// DHCP message types
-pub const DHCP_DISCOVER: u8 = 1;
-pub const DHCP_OFFER: u8 = 2;
-pub const DHCP_REQUEST: u8 = 3;
-pub const DHCP_ACK: u8 = 5;
+pub(crate) const DHCP_DISCOVER: u8 = 1;
+pub(crate) const DHCP_OFFER: u8 = 2;
+pub(crate) const DHCP_REQUEST: u8 = 3;
+pub(crate) const DHCP_ACK: u8 = 5;
 
 /// DHCP options
 const DHCP_OPTION_MESSAGE_TYPE: u8 = 53;
@@ -33,7 +34,7 @@ const MIN_DHCP_PACKET_SIZE: usize = 240;
 
 /// Parsed DHCP request
 #[derive(Debug)]
-pub struct DhcpRequest {
+pub(crate) struct DhcpRequest {
     /// Transaction ID
     pub xid: [u8; 4],
     /// Client MAC address
@@ -43,9 +44,9 @@ pub struct DhcpRequest {
 }
 
 /// Parse a DHCP request from a raw packet
-/// 
+///
 /// Returns `None` if the packet is invalid or not a BOOTREQUEST
-pub fn parse_dhcp_request(packet: &[u8]) -> Option<DhcpRequest> {
+pub(crate) fn parse_dhcp_request(packet: &[u8]) -> Option<DhcpRequest> {
     if packet.len() < MIN_DHCP_PACKET_SIZE {
         return None;
     }
@@ -81,18 +82,18 @@ pub fn parse_dhcp_request(packet: &[u8]) -> Option<DhcpRequest> {
 }
 
 /// Allocate an IP address for a client based on their MAC address
-/// 
+///
 /// Uses a simple stateless algorithm to derive a consistent IP from the MAC.
 /// Returns an address in the range 192.168.4.2 - 192.168.4.50
-pub fn allocate_ip(mac: &[u8; 6]) -> Ipv4Address {
+pub(crate) fn allocate_ip(mac: &[u8; 6]) -> Ipv4Address {
     let offset = (mac[5] % 49) + 2;
     Ipv4Address::new(192, 168, 4, offset)
 }
 
 /// Build a DHCP response (OFFER or ACK)
-/// 
+///
 /// Returns the length of the response packet
-pub fn build_dhcp_response(
+pub(crate) fn build_dhcp_response(
     buffer: &mut [u8],
     request: &DhcpRequest,
     offered_ip: Ipv4Address,
@@ -177,8 +178,9 @@ pub fn build_dhcp_response(
 }
 
 /// Find a DHCP option in the options section
-/// 
-/// The options slice should start AFTER the magic cookie (at offset 240 in the packet)
+///
+/// The options slice should start AFTER the magic cookie (at offset 240 in the
+/// packet)
 fn find_dhcp_option(options: &[u8], option_code: u8) -> Option<&[u8]> {
     let mut i = 0;
 
@@ -206,22 +208,3 @@ fn find_dhcp_option(options: &[u8], option_code: u8) -> Option<&[u8]> {
     }
     None
 }
-
-// /// Format a MAC address for display
-// pub fn format_mac(mac: &[u8; 6]) -> [u8; 17] {
-//     let mut buf = [0u8; 17];
-//     let hex = b"0123456789ABCDEF";
-//     for (i, &byte) in mac.iter().enumerate() {
-//         let pos = i * 3;
-//         buf[pos] = hex[(byte >> 4) as usize];
-//         buf[pos + 1] = hex[(byte & 0x0F) as usize];
-//         if i < 5 {
-//             buf[pos + 2] = b':';
-//         }
-//     }
-//     buf
-// }
-
-
-
-

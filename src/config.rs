@@ -22,6 +22,20 @@ pub const TEMPERATURE_MAX_KELVIN: u16 = 6500;
 /// Minimum supported temperature in Kelvin
 pub const TEMPERATURE_MIN_KELVIN: u16 = 1500;
 
+/// Debounce time for writing light state to the storage
+pub const LIGHT_STATE_WRITE_DEBOUNCE: Duration = Duration::from_millis(5000);
+
+/// Maximum supported LED count
+pub const LED_COUNT_MAX: usize = 128;
+
+/// Default transition timings
+pub const DEFAULT_TRANSITION_TIMINGS: TransitionTimings = TransitionTimings {
+    fade_out: Duration::from_millis(800),
+    fade_in: Duration::from_millis(500),
+    color_change: Duration::from_millis(200),
+    brightness: Duration::from_millis(300),
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WifiConfig {
     pub ssid: String<32>,
@@ -78,6 +92,8 @@ pub struct DeviceConfig {
 
 /// Get the hardware ID from the last 4 bytes of the MAC address
 pub fn hardware_id() -> u32 {
+    let a: Option<DeviceConfig> = None;
+    let b = a.unwrap_or_default();
     let mac = esp_hal::efuse::Efuse::mac_address();
     u32::from_be_bytes([mac[2], mac[3], mac[4], mac[5]])
 }
@@ -86,13 +102,6 @@ pub fn hardware_id() -> u32 {
 pub fn mac_address() -> [u8; 6] {
     esp_hal::efuse::Efuse::mac_address()
 }
-
-pub const DEFAULT_TRANSITION_TIMINGS: TransitionTimings = TransitionTimings {
-    fade_out: Duration::from_millis(800),
-    fade_in: Duration::from_millis(500),
-    color_change: Duration::from_millis(200),
-    brightness: Duration::from_millis(300),
-};
 
 /// Get the LED GPIO pin from the peripherals
 #[macro_export]

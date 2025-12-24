@@ -1,24 +1,37 @@
 //! Home Assistant MQTT Module Initialization
 //!
 //! This module provides the Home Assistant integration configuration for the light.
-//! It creates and configures the `HaModule` with the appropriate entities and callbacks.
+//! It creates and configures the `HaModule` with the appropriate entities and
+//! callbacks.
 
 use embassy_time::Duration;
 use heapless::String;
 use myrtio_light_composer::ModeId;
 use myrtio_mqtt::runtime::MqttModule;
 use myrtio_mqtt_homeassistant::{
-    ColorMode, Device, HaModule, LightCommand, LightEntity, LightRegistration, LightState,
+    ColorMode,
+    Device,
+    HaModule,
+    LightCommand,
+    LightEntity,
+    LightRegistration,
+    LightState,
 };
 use static_cell::StaticCell;
 
 use super::LIGHT_USECASES;
-use crate::config::{
-    BUILD_VERSION, DEVICE_MANUFACTURER, DEVICE_MODEL, TEMPERATURE_MAX_KELVIN,
-    TEMPERATURE_MIN_KELVIN, hardware_id,
+use crate::{
+    config::{
+        BUILD_VERSION,
+        DEVICE_MANUFACTURER,
+        DEVICE_MODEL,
+        TEMPERATURE_MAX_KELVIN,
+        TEMPERATURE_MIN_KELVIN,
+        hardware_id,
+    },
+    domain::dto::LightChangeIntent,
+    mk_static,
 };
-use crate::domain::dto::LightChangeIntent;
-use crate::mk_static;
 
 const MAX_LIGHTS: usize = 4;
 const MAX_NUMBERS: usize = 0;
@@ -28,14 +41,15 @@ const BUF_SIZE: usize = 1024;
 static HOME_ASSISTANT_MODULE: StaticCell<HomeAssistantModule> = StaticCell::new();
 
 /// Type alias for the HA module used in this firmware
-pub(crate) type HomeAssistantModule = HaModule<'static, MAX_LIGHTS, MAX_NUMBERS, BUF_SIZE>;
+pub(crate) type HomeAssistantModule =
+    HaModule<'static, MAX_LIGHTS, MAX_NUMBERS, BUF_SIZE>;
 
 /// Get current light state from shared usecases
 fn get_light_state() -> LightState {
     let state = LIGHT_USECASES.lock(|cell| {
         let cell_ref = cell.borrow();
         let usecases = cell_ref.as_ref().unwrap();
-        usecases.get_light_state().unwrap()
+        usecases.get_light_state()
     });
 
     if state.power {
@@ -105,9 +119,16 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
 
     esp_println::println!(
         "ha: device_id='{}' (len={}), device_name='{}' (len={})",
-        device_id, device_id.len(), device_name, device_name.len()
+        device_id,
+        device_id.len(),
+        device_name,
+        device_name.len()
     );
-    esp_println::println!("ha: BUILD_VERSION='{}' (len={})", BUILD_VERSION, BUILD_VERSION.len());
+    esp_println::println!(
+        "ha: BUILD_VERSION='{}' (len={})",
+        BUILD_VERSION,
+        BUILD_VERSION.len()
+    );
 
     let device = mk_static!(
         Device<'static>,
@@ -124,28 +145,23 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
         [ModeId::Static.as_str(), ModeId::Rainbow.as_str()]
     );
 
-    let light_entity = mk_static!(
-        LightEntity<'static>,
-        LightEntity::builder()
-            .id("led_strip")
-            .name("LED Strip")
-            .device(device)
-            .icon(Some("mdi:led-strip"))
-            .brightness(true)
-            .min_kelvin(Some(TEMPERATURE_MIN_KELVIN))
-            .max_kelvin(Some(TEMPERATURE_MAX_KELVIN))
-            .color_modes(&[ColorMode::Rgb, ColorMode::ColorTemp])
-            .effects(Some(supported_effects.as_slice()))
-            .optimistic(false)
-            .build()
-    );
+    let light_entity = LightEntity::builder()
+        .id("led_strip")
+        .name("LED Strip")
+        .device(device)
+        .icon(Some("mdi:led-strip"))
+        .brightness(true)
+        .min_kelvin(Some(TEMPERATURE_MIN_KELVIN))
+        .max_kelvin(Some(TEMPERATURE_MAX_KELVIN))
+        .color_modes(&[ColorMode::Rgb, ColorMode::ColorTemp])
+        .effects(Some(supported_effects.as_slice()))
+        .optimistic(false)
+        .build();
 
     let mut module = HomeAssistantModule::new(Duration::from_secs(30));
 
-    let light_entity_ref = unsafe { &*light_entity };
-
     let light_registration = LightRegistration {
-        entity: light_entity_ref.clone(),
+        entity: light_entity,
         provide_state: get_light_state,
         on_command: handle_light_command,
     };
@@ -154,6 +170,7 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
         .add_light(light_registration)
         .expect("Failed to add light entity");
 
-    let module: &'static mut HomeAssistantModule = HOME_ASSISTANT_MODULE.uninit().write(module);
+    let module: &'static mut HomeAssistantModule =
+        HOME_ASSISTANT_MODULE.uninit().write(module);
     module as &'static mut dyn MqttModule
 }

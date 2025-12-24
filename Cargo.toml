@@ -17,7 +17,7 @@ path = "src/bin/factory.rs"
 [dependencies]
 myrtio-light-factory-page = { path = "factory-page" }
 
-myrtio-light-composer = "0.4.0"
+myrtio-light-composer = "0.5.0"
 myrtio-mqtt = "0.1.2"
 myrtio-mqtt-homeassistant = "0.1.2"
 
@@ -69,6 +69,7 @@ dotenv-build = "0.1.1"
 chrono = "0.4.31"
 
 [features]
+log = [] # TODO: ["esp-println"]
 default = []
 rs1 = []
 curtain = []

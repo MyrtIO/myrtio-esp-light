@@ -1,15 +1,24 @@
 use embassy_net::tcp::TcpSocket;
 use embedded_io_async::Write as _;
+#[cfg(feature = "log")]
 use esp_println::println;
 use heapless::{String, Vec};
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 
-use super::headers::{
-    BufferedWriter as _, ContentHeaders, ContentType, HttpMethod, ResponseHeaders,
-    find_content_length, parse_request_line, read_heading,
+use super::{
+    Error,
+    HttpResult,
+    headers::{
+        ContentHeaders,
+        ContentType,
+        HttpMethod,
+        ResponseHeaders,
+        TargetWriter as _,
+        find_content_length,
+        parse_request_line,
+        read_heading,
+    },
 };
-use super::{HttpError, HttpResult};
 
 const HEADER_BUFFER_SIZE: usize = 512;
 const BODY_BUFFER_SIZE: usize = 1024;
@@ -19,16 +28,19 @@ const STREAM_CHUNK_SIZE: usize = 1024;
 /// A trait for reading chunks from a connection.
 pub trait AsyncChunkedReader {
     fn content_length(&self) -> u32;
-    fn read_and_then(&mut self, op: impl FnOnce(&[u8])) -> impl Future<Output = HttpResult>;
+    fn read_and_then(
+        &mut self,
+        op: impl FnOnce(&[u8]),
+    ) -> impl Future<Output = HttpResult>;
 }
 
 /// A trait for writing to a connection.
-pub trait AsyncWriter {
+pub(crate) trait AsyncWriter {
     fn write_all(&mut self, buf: &[u8]) -> impl Future<Output = HttpResult>;
 }
 
 /// HTTP connection context
-pub struct HttpConnection<'a> {
+pub(crate) struct HttpConnection<'a> {
     pub method: HttpMethod,
     pub path: heapless::String<64>,
 
@@ -42,19 +54,24 @@ pub struct HttpConnection<'a> {
 
 impl<'a> HttpConnection<'a> {
     /// Create a new HTTP connection from a socket.
-    pub(crate) async fn from_socket(mut socket: TcpSocket<'a>) -> Result<Self, HttpError> {
+    pub(crate) async fn from_socket(
+        mut socket: TcpSocket<'a>,
+    ) -> Result<Self, Error> {
         let mut header_buf = Vec::<u8, HEADER_BUFFER_SIZE>::new();
         for _ in 0..header_buf.capacity() {
             header_buf.push(0).unwrap();
         }
-        let (header_end, header_len) = read_heading(header_buf.as_mut_slice(), &mut socket).await?;
+        let (header_end, header_len) =
+            read_heading(header_buf.as_mut_slice(), &mut socket).await?;
         header_buf.truncate(header_len);
 
-        // Only parse the headers portion (before body data) to avoid UB with binary data
+        // Only parse the headers portion (before body data) to avoid UB with binary
+        // data
         let headers_only = &header_buf.as_slice()[..header_end];
-        let header_str = core::str::from_utf8(headers_only).map_err(|_| HttpError::Parse)?;
+        let header_str =
+            core::str::from_utf8(headers_only).map_err(|_| Error::Parse)?;
         let (method, raw_path, rest_headers) =
-            parse_request_line(header_str).ok_or(HttpError::Parse)?;
+            parse_request_line(header_str).ok_or(Error::Parse)?;
         let content_length = find_content_length(rest_headers).unwrap_or(0);
 
         let mut path = String::new();
@@ -72,7 +89,10 @@ impl<'a> HttpConnection<'a> {
     }
 
     /// Write the headers to the connection
-    pub(crate) async fn write_headers(&mut self, headers: &ResponseHeaders) -> HttpResult {
+    pub(crate) async fn write_headers(
+        &mut self,
+        headers: &ResponseHeaders,
+    ) -> HttpResult {
         self.header_buf.clear();
         headers.write_to(&mut self.header_buf)?;
         self.write_header_buf().await
@@ -94,11 +114,10 @@ impl<'a> HttpConnection<'a> {
             self.body_buf.push(0).unwrap();
         }
         let n = serde_json_core::to_slice(data, self.body_buf.as_mut_slice())
-            .map_err(|_| HttpError::Closed)?;
+            .map_err(|_| Error::Closed)?;
         self.body_buf.truncate(n);
-        let headers = ResponseHeaders::success().with_content(
-            ContentHeaders::new_with_content_type(ContentType::Json).with_content_length(n),
-        );
+        let headers = ResponseHeaders::success()
+            .with_content(ContentHeaders::new(ContentType::Json).with_length(n));
 
         self.write_headers(&headers).await?;
 
@@ -107,11 +126,14 @@ impl<'a> HttpConnection<'a> {
     }
 
     /// Read JSON from the request body
-    pub(crate) async fn read_json<T: DeserializeOwned>(&mut self) -> Result<T, HttpError> {
+    pub(crate) async fn read_json<T: DeserializeOwned>(
+        &mut self,
+    ) -> Result<T, Error> {
         let body = self.read_body().await?;
-        let (data, _) = serde_json_core::from_slice(body).map_err(|e| {
-            println!("factory_http: parse error: {:?}", e);
-            HttpError::Parse
+        let (data, _) = serde_json_core::from_slice(body).map_err(|_e| {
+            #[cfg(feature = "log")]
+            println!("factory_http: parse error: {:?}", _e);
+            Error::Parse
         })?;
         Ok(data)
     }
@@ -137,24 +159,10 @@ impl<'a> HttpConnection<'a> {
         Ok(())
     }
 
-    /// Read bytes from the connection
-    pub async fn read_to(&mut self, buf: &mut [u8]) -> Result<usize, HttpError> {
-        let n = self.socket.read(buf).await?;
-        Ok(n)
-    }
-
-    /// Get the header trailer
-    pub fn header_trailer(&mut self) -> &[u8] {
-        if self.header_buf.len() > self.header_end {
-            return &self.header_buf.as_slice()[self.header_end..];
-        }
-        &[]
-    }
-
     /// Read the request body
-    async fn read_body(&mut self) -> Result<&[u8], HttpError> {
+    async fn read_body(&mut self) -> Result<&[u8], Error> {
         if self.content_length == 0 {
-            return Err(HttpError::NoData);
+            return Err(Error::NoData);
         }
 
         self.body_buf.clear();
@@ -199,7 +207,7 @@ impl AsyncChunkedReader for HttpConnection<'_> {
     async fn read_and_then(&mut self, op: impl FnOnce(&[u8])) -> HttpResult {
         if self.content_length == 0 {
             esp_println::println!("http: content_length is 0, returning NoData");
-            return Err(HttpError::NoData);
+            return Err(Error::NoData);
         }
 
         if self.received >= self.content_length {

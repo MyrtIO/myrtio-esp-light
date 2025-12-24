@@ -1,7 +1,7 @@
 //! Factory Firmware
 //!
 //! This binary provides a provisioning interface for initial device setup:
-//! - Starts a Wi-Fi Access Point (MyrtIO-Setup-XXXX)
+//! - Starts a Wi-Fi Access Point
 //! - Runs a DHCP server for clients
 //! - Serves an HTTP configuration page on 192.168.4.1
 //! - Allows configuration of `WiFi`, MQTT, and LED settings
@@ -12,34 +12,44 @@
 
 use embassy_executor::Spawner;
 use embassy_time::Duration;
-
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::gpio::{Level, Output, OutputConfig};
-use esp_hal::peripherals::GPIO2;
-use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
+use esp_hal::{
+    clock::CpuClock,
+    gpio::{Level, Output, OutputConfig},
+    timer::timg::TimerGroup,
+};
 use esp_println::println;
 use esp_storage::FlashStorage;
-use myrtio_esp_light::domain::entity::LightState;
-use myrtio_light_composer::LightIntent;
-use myrtio_light_composer::engine::LightStateIntent;
-use smart_leds::colors::WHITE;
+use myrtio_esp_light::{
+    app::{ConfigurationUsecases, FirmwareUsecases},
+    controllers::{init_button_controller, init_factory_controllers},
+    domain::{
+        dto::LightChangeIntent,
+        ports::{
+            LightConfigChanger as _,
+            LightStateChanger as _,
+            PersistentDataReader as _,
+        },
+    },
+    infrastructure::{
+        drivers::init_network_stack_ap,
+        services::{
+            LightStateService,
+            PersistenceService,
+            init_light_service,
+            init_storage_services,
+        },
+        tasks::factory::{
+            dhcp_server_task,
+            factory_network_runner_task,
+            factory_wifi_ap_task,
+            http_server_task,
+        },
+    },
+    mk_static,
+};
 use static_cell::StaticCell;
-
-use myrtio_esp_light::app::ConfigurationUsecases;
-use myrtio_esp_light::config;
-use myrtio_esp_light::controllers::init_factory_controllers;
-use myrtio_esp_light::domain::ports::PersistenceHandler;
-use myrtio_esp_light::infrastructure::drivers::init_network_stack_ap;
-use myrtio_esp_light::infrastructure::repositories::AppPersistentStorage;
-use myrtio_esp_light::infrastructure::tasks::factory::{
-    blink_task, dhcp_server_task, factory_network_runner_task, factory_wifi_ap_task,
-    http_server_task,
-};
-use myrtio_esp_light::infrastructure::tasks::light_composer::{
-    LightTaskParams, init_light_composer, light_composer_task,
-};
-use myrtio_esp_light::mk_static;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -67,9 +77,6 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
-    // Spawn blink task
-    spawner.spawn(blink_task(peripherals.GPIO2)).ok();
-
     // Initialize flash storage (shared between HTTP server for config and OTA)
     let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
     let flash_ptr = flash as *mut FlashStorage<'static>;
@@ -82,35 +89,6 @@ async fn main(spawner: Spawner) -> ! {
 
     // Spawn network runner
     spawner.spawn(factory_network_runner_task(runner)).ok();
-
-    let storage = AppPersistentStorage::new(flash_ptr, config::CONFIGURATION_PARTITION_OFFSET);
-
-    let persistent_data = storage.get_persistent_data();
-    let light_config = persistent_data
-        .map(|(_, _, config)| config.light)
-        .unwrap_or(config::LightConfig {
-            brightness_min: 0,
-            brightness_max: 255,
-            led_count: 20,
-            skip_leds: 0,
-            color_correction: 0xFF_FFFF,
-        });
-
-    // Initialize light composer and spawn its task
-    let (driver, intents_sender) =
-        init_light_composer(peripherals.RMT, myrtio_esp_light::led_gpio!(peripherals));
-    spawner
-        .spawn(light_composer_task(
-            driver,
-            LightTaskParams {
-                min_brightness: light_config.brightness_min,
-                max_brightness: light_config.brightness_max,
-                led_count: light_config.led_count,
-                skip_leds: light_config.skip_leds,
-                color_correction: light_config.color_correction,
-            },
-        ))
-        .ok();
 
     loop {
         if stack.is_link_up() {
@@ -126,22 +104,41 @@ async fn main(spawner: Spawner) -> ! {
     // Spawn DHCP server
     spawner.spawn(dhcp_server_task(stack)).ok();
 
-    // Initialize configuration usecases and http handler
-    let storage = AppPersistentStorage::new(flash_ptr, config::CONFIGURATION_PARTITION_OFFSET);
-    let usecases = mk_static!(
-        ConfigurationUsecases<AppPersistentStorage>,
-        ConfigurationUsecases::new(storage)
+    let mut light_service = init_light_service(
+        spawner,
+        peripherals.RMT,
+        myrtio_esp_light::led_gpio!(peripherals),
     );
 
-    intents_sender.send(LightIntent::StateChange(LightStateIntent {
-        power: Some(true),
-        brightness: Some(255),
-        color: Some(WHITE),
-        color_temperature: None,
-        mode_id: Some(myrtio_light_composer::ModeId::Static),
-    })).await;
+    let (ota_service, persistence_service) =
+        init_storage_services(spawner, flash_ptr).await;
 
-    let handler = init_factory_controllers(usecases, flash_ptr, intents_sender);
+    let (_light_state, config) = persistence_service
+        .read_persistent_data()
+        .unwrap_or_default();
+
+    light_service
+        .set_config(config.light)
+        .expect("Failed to set light config");
+
+    let firmware = FirmwareUsecases::new(ota_service);
+
+    let configuration = mk_static!(
+        ConfigurationUsecases<PersistenceService, LightStateService>,
+        ConfigurationUsecases::new(persistence_service.clone(), light_service.clone())
+    );
+
+    light_service
+        .apply_light_intent(LightChangeIntent {
+            power: Some(true),
+            brightness: Some(255),
+            color: Some((255, 255, 255)),
+            color_temp: None,
+            mode_id: Some(myrtio_light_composer::ModeId::Static as u8),
+        })
+        .unwrap();
+
+    let handler = init_factory_controllers(configuration, firmware).await;
 
     // Spawn HTTP server
     spawner.spawn(http_server_task(stack, handler)).ok();
@@ -150,8 +147,12 @@ async fn main(spawner: Spawner) -> ! {
     println!("Connect to WiFi: MyrtIO-Setup-XXXX");
     println!("Open http://192.168.4.1 in browser");
 
-    // Main loop - just keep running
+    let mut pin =
+        Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
     loop {
-        embassy_time::Timer::after(Duration::from_secs(60)).await;
+        pin.set_high();
+        embassy_time::Timer::after(Duration::from_millis(500)).await;
+        pin.set_low();
+        embassy_time::Timer::after(Duration::from_millis(500)).await;
     }
 }

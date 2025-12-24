@@ -3,31 +3,28 @@
 
 use embassy_executor::Spawner;
 use embassy_time::Duration;
-
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 use esp_println::println;
 use esp_storage::FlashStorage;
+use myrtio_esp_light::{
+    app::{ConfigurationUsecases, FirmwareUsecases, LightUsecases},
+    controllers::init_app_controllers,
+    domain::ports::{LightConfigChanger, LightStateChanger, PersistentDataReader},
+    infrastructure::{
+        drivers::{init_network_stack, wait_for_connection},
+        services::{
+            LightStateService,
+            PersistenceService,
+            init_light_service,
+            init_storage_services,
+        },
+        tasks::app::{mqtt_client_task, network_runner_task, wifi_connection_task},
+    },
+    mk_static,
+};
 use static_cell::StaticCell;
-
-use myrtio_esp_light::app::LightUsecases;
-use myrtio_esp_light::config::{CONFIGURATION_PARTITION_OFFSET, DeviceConfig};
-use myrtio_esp_light::controllers::{init_app_controllers, init_boot_controller};
-use myrtio_esp_light::domain::entity::LightState;
-use myrtio_esp_light::domain::ports::{OnBootHandler, PersistenceHandler};
-use myrtio_esp_light::infrastructure::drivers::{init_network_stack, wait_for_connection};
-use myrtio_esp_light::infrastructure::repositories::AppPersistentStorage;
-use myrtio_esp_light::infrastructure::repositories::BootManager;
-use myrtio_esp_light::infrastructure::services::{
-    LightStatePersistenceService, LightStateService, get_persistence_receiver,
-};
-use myrtio_esp_light::infrastructure::tasks::app::{
-    boot_task, mqtt_client_task, network_runner_task, persistence_task, wifi_connection_task,
-};
-use myrtio_esp_light::infrastructure::tasks::light_composer::{
-    LightTaskParams, init_light_composer, light_composer_task,
-};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -55,61 +52,39 @@ async fn main(spawner: Spawner) -> ! {
     let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
     let flash_ptr = flash as *mut FlashStorage<'static>;
 
-    let boot_manager = BootManager::new(flash_ptr);
-    let boot_storage = AppPersistentStorage::new(flash_ptr, CONFIGURATION_PARTITION_OFFSET);
-    let mut boot_controller = init_boot_controller(boot_storage, boot_manager);
+    let (ota_service, persistence_service) =
+        init_storage_services(spawner, flash_ptr).await;
 
-    boot_controller.on_boot_start();
-
-    let storage = AppPersistentStorage::new(flash_ptr, CONFIGURATION_PARTITION_OFFSET);
-    let persistent_data = storage.get_persistent_data();
-    let device_config: Option<DeviceConfig> = persistent_data.map(|(_, _, config)| config);
-
-    // Spawn persistence task
-    let receiver = get_persistence_receiver();
-    spawner.spawn(persistence_task(storage, receiver)).ok();
-
-    let persistence_service = LightStatePersistenceService::new();
-    let light_config = device_config.as_ref().map(|cfg| cfg.light).unwrap_or(
-        myrtio_esp_light::config::LightConfig {
-            brightness_min: 0,
-            brightness_max: 255,
-            led_count: 20,
-            skip_leds: 0,
-            color_correction: 0xFFFFFF,
-        },
+    let mut light_service = init_light_service(
+        spawner,
+        peripherals.RMT,
+        myrtio_esp_light::led_gpio!(peripherals),
     );
 
-    // Initialize light composer and spawn its task
-    let (driver, cmd_sender) =
-        init_light_composer(peripherals.RMT, myrtio_esp_light::led_gpio!(peripherals));
-    spawner
-        .spawn(light_composer_task(
-            driver,
-            LightTaskParams {
-                min_brightness: light_config.brightness_min,
-                max_brightness: light_config.brightness_max,
-                led_count: light_config.led_count,
-                skip_leds: light_config.skip_leds,
-                color_correction: light_config.color_correction,
-            },
-        ))
-        .ok();
+    let (light_state, config) = persistence_service
+        .read_persistent_data()
+        .unwrap_or_default();
 
-    // Initialize usecases and controllers
-    let state_service = LightStateService::new(cmd_sender);
-    let usecases = myrtio_esp_light::mk_static!(
-        LightUsecases<LightStateService, LightStatePersistenceService>,
-        LightUsecases::new(state_service, persistence_service)
+    light_service
+        .apply_light_intent(light_state.into())
+        .unwrap();
+    light_service.set_config(config.light).unwrap();
+
+    let configuration = mk_static!(
+        ConfigurationUsecases<PersistenceService, LightStateService>,
+        ConfigurationUsecases::new(persistence_service.clone(), light_service.clone())
     );
-    let mqtt_module = init_app_controllers(usecases);
+    let light = mk_static!(
+        LightUsecases<LightStateService, PersistenceService>,
+        LightUsecases::new(light_service, persistence_service)
+    );
 
-    // boot_controller.on_light_ready();
+    let firmware = FirmwareUsecases::new(ota_service);
+
+    let mqtt_module = init_app_controllers(light);
 
     // Validate config and start network if provisioned
-    let config_valid = device_config
-        .as_ref()
-        .is_some_and(|cfg| !cfg.wifi.ssid.is_empty() && !cfg.mqtt.host.is_empty());
+    let config_valid = !config.wifi.ssid.is_empty() && !config.mqtt.host.is_empty();
 
     if !config_valid {
         println!("app: no provisioned config; run factory provisioning");
@@ -119,34 +94,25 @@ async fn main(spawner: Spawner) -> ! {
         }
     }
 
-    let device_config = device_config.unwrap();
-    println!("app: using wifi ssid: {}", device_config.wifi.ssid);
+    println!("app: using wifi ssid: {}", config.wifi.ssid);
     println!(
         "app: using mqtt host: {}:{}",
-        device_config.mqtt.host, device_config.mqtt.port
+        config.mqtt.host, config.mqtt.port
     );
 
     // Initialize network stack and spawn network tasks
     let (stack, runner, controller) = init_network_stack(peripherals.WIFI);
     spawner
-        .spawn(wifi_connection_task(controller, device_config.wifi.clone()))
+        .spawn(wifi_connection_task(controller, config.wifi.clone()))
         .ok();
     spawner.spawn(network_runner_task(runner)).ok();
-
-    boot_controller.on_boot_end();
-
-    spawner.spawn(boot_task(boot_controller)).ok();
 
     // Wait for network connection before starting network-dependent tasks
     wait_for_connection(stack).await;
 
     // Spawn MQTT task
     spawner
-        .spawn(mqtt_client_task(
-            stack,
-            mqtt_module,
-            device_config.mqtt.clone(),
-        ))
+        .spawn(mqtt_client_task(stack, mqtt_module, config.mqtt.clone()))
         .ok();
 
     loop {

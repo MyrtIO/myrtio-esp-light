@@ -3,27 +3,29 @@
 //! This module provides the infrastructure-level MQTT task that accepts any
 //! `MqttModule` implementation via a trait object.
 
-use embassy_net::Stack;
-use embassy_net::tcp::TcpSocket;
+use embassy_net::{Stack, tcp::TcpSocket};
 use embassy_sync::channel::Channel;
 use embassy_time::Duration;
 use esp_println::println;
 use heapless::String;
-use myrtio_mqtt::runtime::{MqttModule, MqttRuntime, PublishRequestChannel};
 use myrtio_mqtt::{
     client::{MqttClient, MqttOptions},
+    runtime::{MqttModule, MqttRuntime, PublishRequestChannel},
     transport::TcpTransport,
 };
 
-use crate::config::{MqttConfig, hardware_id};
-use crate::infrastructure::drivers::resolve_host;
-use crate::mk_static;
+use crate::{
+    config::{MqttConfig, hardware_id},
+    infrastructure::drivers::resolve_host,
+    mk_static,
+};
 
 const MQTT_OUTBOX_DEPTH: usize = 4;
 const MQTT_MAX_TOPICS: usize = 8;
 const MQTT_BUF_SIZE: usize = 2048;
 
-static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> = Channel::new();
+static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> =
+    Channel::new();
 
 /// MQTT runtime task that accepts any module implementing `MqttModule`.
 #[embassy_executor::task]
@@ -33,10 +35,21 @@ pub async fn mqtt_client_task(
     mqtt_config: MqttConfig,
 ) {
     println!("mqtt: starting runtime task");
+    let mut rx_buffer = [0u8; 1024];
+    let mut tx_buffer = [0u8; 1024];
     let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
     println!("mqtt: device id: {}", device_id);
     loop {
-        if let Err(_e) = run_mqtt_client(stack, module, &mqtt_config, device_id).await {
+        if let Err(_e) = run_mqtt_client(
+            stack,
+            module,
+            &mqtt_config,
+            device_id,
+            &mut rx_buffer,
+            &mut tx_buffer,
+        )
+        .await
+        {
             println!("mqtt: connection lost, reconnecting in 2s...");
             embassy_time::Timer::after(Duration::from_secs(2)).await;
         }
@@ -55,11 +68,10 @@ async fn run_mqtt_client(
     module: &mut dyn MqttModule,
     mqtt_config: &MqttConfig,
     device_id: &'static str,
+    rx_buffer: &mut [u8],
+    tx_buffer: &mut [u8],
 ) -> Result<(), ()> {
-    let mut rx_buffer = [0u8; 1024];
-    let mut tx_buffer = [0u8; 1024];
-
-    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+    let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
     socket.set_timeout(Some(Duration::from_secs(60)));
 
     let broker_addr = resolve_host(stack, mqtt_config.host.as_str()).await?;
@@ -78,8 +90,10 @@ async fn run_mqtt_client(
     println!("mqtt: TCP socket connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
-    let options = MqttOptions::new(device_id).with_keep_alive(Duration::from_secs(15));
-    let mqtt: MqttClient<_, MQTT_MAX_TOPICS, MQTT_BUF_SIZE> = MqttClient::new(transport, options);
+    let options =
+        MqttOptions::new(device_id).with_keep_alive(Duration::from_secs(15));
+    let mqtt: MqttClient<_, MQTT_MAX_TOPICS, MQTT_BUF_SIZE> =
+        MqttClient::new(transport, options);
 
     // Create the runtime with the provided module
     let mut runtime: MqttRuntime<

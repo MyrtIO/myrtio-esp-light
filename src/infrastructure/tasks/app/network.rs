@@ -2,7 +2,13 @@ use embassy_net::Runner;
 use embassy_time::{Duration, Timer};
 use esp_println::println;
 use esp_radio::wifi::{
-    AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
+    AuthMethod,
+    ClientConfig,
+    ModeConfig,
+    WifiController,
+    WifiDevice,
+    WifiEvent,
+    WifiStaState,
 };
 
 use crate::config::WifiConfig;
@@ -12,7 +18,10 @@ use crate::config::WifiConfig;
 /// It connects to the `WiFi` network and waits for the connection to be established.
 /// If the connection is lost, it tries to reconnect.
 #[embassy_executor::task]
-pub async fn wifi_connection_task(mut controller: WifiController<'static>, wifi_config: WifiConfig) {
+pub async fn wifi_connection_task(
+    mut controller: WifiController<'static>,
+    wifi_config: WifiConfig,
+) {
     loop {
         // Wait until we're no longer connected
         if esp_radio::wifi::sta_state() == WifiStaState::Connected {

@@ -1,14 +1,76 @@
 use core::str::FromStr;
 
 use bytemuck::{Pod, Zeroable};
+use esp_println::println;
 use heapless::String;
 
-use crate::config::{DeviceConfig, LightConfig, MqttConfig, WifiConfig};
-use crate::domain::entity::{ColorMode, LightState};
-use crate::domain::ports::PersistenceHandler;
-use crate::infrastructure::drivers::EspPersistentStorage;
+use crate::{
+    config::{DeviceConfig, LightConfig, MqttConfig, WifiConfig},
+    domain::{
+        dto::PersistentData,
+        entity::{ColorMode, LightState},
+        ports::{PersistenceError, PersistentDataReader, PersistentDataWriter},
+    },
+    infrastructure::drivers::EspPersistentStorage,
+};
 
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+/// Concrete storage driver used by the firmware.
+pub type AppPersistentStorage = EspPersistentStorage<AppPersistentData>;
+
+impl AppPersistentStorage {
+    fn get_raw_data(&self) -> Result<AppPersistentData, PersistenceError> {
+        self.load().map_err(|e| {
+            println!("get_raw_data: {:?}", e);
+
+            PersistenceError::DriverError
+        })
+    }
+
+    fn save_raw_data(
+        &self,
+        data: &AppPersistentData,
+    ) -> Result<(), PersistenceError> {
+        self.save(data).map_err(|_| PersistenceError::DriverError)
+    }
+}
+
+unsafe impl Send for AppPersistentStorage {}
+unsafe impl Sync for AppPersistentStorage {}
+
+impl PersistentDataReader for AppPersistentStorage {
+    fn read_persistent_data(
+        &self,
+    ) -> Result<(LightState, DeviceConfig), PersistenceError> {
+        let res = self.get_raw_data();
+        match res {
+            Err(e) => {
+                println!("error: {:?}", e);
+                Err(e)
+            }
+            Ok(data) => Ok((data.light_state.into(), (&data.config).into())),
+        }
+    }
+}
+
+impl PersistentDataWriter for AppPersistentStorage {
+    fn write_persistent_data(
+        &self,
+        data: PersistentData,
+    ) -> Result<(), PersistenceError> {
+        let mut stored_data = self.get_raw_data().unwrap_or_default();
+        match data {
+            PersistentData::LightState(light_state) => {
+                stored_data.light_state = light_state.into();
+            }
+            PersistentData::DeviceConfig(config) => {
+                stored_data.config = config.into();
+            }
+        }
+        self.save_raw_data(&stored_data)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Zeroable, Pod, Default)]
 #[repr(C)]
 struct PersistentLightState {
     pub power: u8,
@@ -40,7 +102,8 @@ impl From<PersistentLightState> for LightState {
             power: state.power != 0,
             brightness: state.brightness,
             mode_id: state.mode_id,
-            color_mode: ColorMode::from_u8(state.color_mode).unwrap_or(ColorMode::Rgb),
+            color_mode: ColorMode::from_u8(state.color_mode)
+                .unwrap_or(ColorMode::Rgb),
             color: (state.color[0], state.color[1], state.color[2]),
             color_temp: state.color_temp,
         }
@@ -52,6 +115,15 @@ impl From<PersistentLightState> for LightState {
 struct PersistentWifiConfig {
     pub ssid: [u8; 32],
     pub password: [u8; 64],
+}
+
+impl Default for PersistentWifiConfig {
+    fn default() -> Self {
+        Self {
+            ssid: [0; 32],
+            password: [0; 64],
+        }
+    }
 }
 
 impl From<WifiConfig> for PersistentWifiConfig {
@@ -81,6 +153,17 @@ struct PersistentMqttConfig {
     pub password: [u8; 64],
 }
 
+impl Default for PersistentMqttConfig {
+    fn default() -> Self {
+        Self {
+            host: [0; 64],
+            port: 1883,
+            username: [0; 32],
+            password: [0; 64],
+        }
+    }
+}
+
 impl From<MqttConfig> for PersistentMqttConfig {
     fn from(config: MqttConfig) -> Self {
         Self {
@@ -103,7 +186,7 @@ impl<'a> From<&'a PersistentMqttConfig> for MqttConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod, Default)]
 #[repr(C)]
 struct PersistentDeviceConfig {
     pub light: LightConfig,
@@ -133,86 +216,12 @@ impl From<&PersistentDeviceConfig> for DeviceConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod, Default)]
 #[repr(C)]
 pub struct AppPersistentData {
     light_state: PersistentLightState,
-    reboot_count: u8,
-    _padding: u8,
+    _padding: u16,
     config: PersistentDeviceConfig,
-}
-
-/// Concrete storage driver used by the firmware.
-pub type AppPersistentStorage = EspPersistentStorage<AppPersistentData>;
-
-impl AppPersistentStorage {
-    fn get_raw_data(&self) -> Option<AppPersistentData> {
-        let Ok(data) = self.load().map_err(|_| ()) else {
-            return None;
-        };
-        Some(data)
-    }
-
-    fn save_raw_data(&self, data: &AppPersistentData) -> Option<()> {
-        self.save(data).map_err(|_| ()).ok()
-    }
-}
-
-unsafe impl Send for AppPersistentStorage {}
-unsafe impl Sync for AppPersistentStorage {}
-
-impl PersistenceHandler for AppPersistentStorage {
-    fn get_persistent_data(&self) -> Option<(u8, LightState, DeviceConfig)> {
-        let data = self.get_raw_data()?;
-        Some((
-            data.reboot_count,
-            data.light_state.into(),
-            (&data.config).into(),
-        ))
-    }
-
-    fn persist_light_state(&mut self, light_state: LightState) -> Option<()> {
-        let mut data = self
-            .get_raw_data()
-            .unwrap_or_else(AppPersistentData::zeroed);
-        data.light_state = light_state.into();
-        self.save_raw_data(&data)
-    }
-
-    fn persist_device_config(&mut self, config: &DeviceConfig) -> Option<()> {
-        let mut data = self
-            .get_raw_data()
-            .unwrap_or_else(AppPersistentData::zeroed);
-        data.config = config.clone().into();
-        self.save_raw_data(&data)
-    }
-
-    fn persist_boot_count(&mut self, boot_count: u8) -> Option<()> {
-        let mut data = self
-            .get_raw_data()
-            .unwrap_or_else(AppPersistentData::zeroed);
-        data.reboot_count = boot_count;
-        self.save_raw_data(&data)
-    }
-
-    fn get_reboot_count(&self) -> Option<u8> {
-        let data = self.get_raw_data()?;
-        Some(data.reboot_count)
-    }
-
-    fn increment_reboot_count(&mut self) -> Option<u8> {
-        let mut data = self.get_raw_data().unwrap_or(AppPersistentData::zeroed());
-        data.reboot_count += 1;
-        self.save_raw_data(&data)?;
-
-        Some(data.reboot_count)
-    }
-
-    fn reset_reboot_count(&mut self) -> Option<()> {
-        let mut data = self.get_raw_data()?;
-        data.reboot_count = 0;
-        self.save_raw_data(&data)
-    }
 }
 
 /// Get the length of a string from a byte array
