@@ -33,6 +33,7 @@ export class ConfigurationBlock {
   private inputs: ToInputs<Configuration>;
   private isDirty: boolean = false;
   private form: HTMLFormElement;
+  private colorPicker: HTMLInputElement;
 
   constructor(form: HTMLFormElement, onDirty: () => void) {
     const $ = (name: string): HTMLInputElement => {
@@ -69,6 +70,24 @@ export class ConfigurationBlock {
         color_correction: $("color_correction"),
       },
     };
+
+    // Setup color picker sync
+    this.colorPicker = document.getElementById("color_correction_picker") as HTMLInputElement;
+    const hexInput = this.inputs.light.color_correction;
+
+    this.colorPicker.addEventListener("input", () => {
+      hexInput.value = this.colorPicker.value.toUpperCase();
+      hexInput.dispatchEvent(new Event("change"));
+    });
+
+    hexInput.addEventListener("input", () => {
+      let v = hexInput.value.toUpperCase().replace(/[^#0-9A-F]/g, "");
+      if (!v.startsWith("#")) v = "#" + v.replace(/#/g, "");
+      hexInput.value = v.slice(0, 7);
+      if (/^#[0-9A-F]{6}$/.test(hexInput.value)) {
+        this.colorPicker.value = hexInput.value;
+      }
+    });
   }
 
   public unlock() {
@@ -84,11 +103,30 @@ export class ConfigurationBlock {
   }
 
   public setValues(configuration: Configuration) {
-    recursiveSetValues(this.inputs, configuration);
+    // Format color_correction as #RRGGBB before recursive set
+    const hex = "#" + configuration.light.color_correction.toString(16).toUpperCase().padStart(6, "0");
+    this.colorPicker.value = hex;
+    recursiveSetValues(this.inputs, {
+      ...configuration,
+      light: { ...configuration.light, color_correction: hex as unknown as number },
+    });
+  }
+
+  public validate(): boolean {
+    const hex = this.inputs.light.color_correction.value;
+    if (!/^#[0-9A-F]{6}$/i.test(hex)) {
+      alert("Неверный формат цвета. Используйте #RRGGBB");
+      return false;
+    }
+    return true;
   }
 
   public getValues(): Configuration {
-    return recursiveGetValues(this.inputs);
+    const values = recursiveGetValues(this.inputs);
+    // Parse #RRGGBB back to u32
+    const hex = (values.light.color_correction as unknown as string).replace("#", "");
+    values.light.color_correction = parseInt(hex, 16) || 0xFFFFFF;
+    return values;
   }
 }
 

@@ -42,6 +42,7 @@ async function main() {
 
   async function onConfigurationSave(e: Event) {
     e.preventDefault();
+    if (!configurationForm.validate()) return;
     const values = configurationForm.getValues();
     headerBlock.showLoader();
     headerBlock.hideSaveButton();

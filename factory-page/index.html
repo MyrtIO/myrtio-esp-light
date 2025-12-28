@@ -81,9 +81,8 @@
                     <div class="row">
                         <div class="label">Цветокоррекция</div>
                         <div class="value">
-                            <span style="color: var(--text-secondary); margin-right: -4px;">#</span>
-                            <input type="number" placeholder="FFFFFF" name="color_correction" pattern="[0-9A-Fa-f]{6}"
-                                maxlength="6" style="text-transform: uppercase; width: 70px;">
+                            <input type="color" id="color_correction_picker">
+                            <input type="text" name="color_correction" class="color-hex" placeholder="#FFFFFF" maxlength="7">
                         </div>
                     </div>
                     <div class="row">
