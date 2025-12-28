@@ -4,42 +4,45 @@ use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use esp_hal::{
     gpio::{Event, Input, InputConfig, InputPin, Io, Pull},
     handler,
-    peripherals::IO_MUX,
+    peripherals,
     ram,
 };
 
-pub struct ButtonController;
-
 /// Callback type for button click handler
-pub type ButtonCallback = fn();
+pub type BootButtonCallback = fn();
 
+/// Button input pin
 static BUTTON: Mutex<CriticalSectionRawMutex, RefCell<Option<Input>>> =
     Mutex::new(RefCell::new(None));
 
-static CALLBACK: Mutex<CriticalSectionRawMutex, RefCell<Option<ButtonCallback>>> =
-    Mutex::new(RefCell::new(None));
+/// Callback for button click handler
+static CALLBACK: Mutex<
+    CriticalSectionRawMutex,
+    RefCell<Option<BootButtonCallback>>,
+> = Mutex::new(RefCell::new(None));
 
-pub fn init_button_controller(
-    mux: IO_MUX<'static>,
+/// Bind boot button to the system
+pub fn bind_boot_button(
+    mux: peripherals::IO_MUX<'static>,
     pin: impl InputPin + 'static,
-    on_click: ButtonCallback,
-) -> ButtonController {
+    on_click: BootButtonCallback,
+) {
     let mut io = Io::new(mux);
     io.set_interrupt_handler(handle_button_click);
-    let mut button = Input::new(pin, InputConfig::default().with_pull(Pull::Up));
+
+    let config = InputConfig::default().with_pull(Pull::Up);
+    let mut button = Input::new(pin, config);
     button.listen(Event::FallingEdge);
 
     BUTTON.lock(|cell| {
         cell.borrow_mut().replace(button);
     });
-
     CALLBACK.lock(|cell| {
         cell.borrow_mut().replace(on_click);
     });
-
-    ButtonController
 }
 
+/// Handler for boot button click event
 #[handler]
 #[ram]
 fn handle_button_click() {

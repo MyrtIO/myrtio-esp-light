@@ -1,7 +1,7 @@
-use embassy_time::{Duration, Timer};
+#![allow(clippy::await_holding_refcell_ref)]
+
 #[cfg(feature = "log")]
 use esp_println::println;
-use esp_storage::FlashStorage;
 use heapless::String;
 
 use super::CONFIGURATION_USECASES;
@@ -23,7 +23,6 @@ use crate::{
         dto::SystemInformation,
         ports::{BootSectorSelector as _, HttpFirmwareUpdater as _},
     },
-    infrastructure::repositories::BootManager,
 };
 
 #[derive(Debug, Default)]
@@ -74,9 +73,9 @@ async fn handle_get_system_information(mut conn: HttpConnection<'_>) -> HttpResu
 
 async fn handle_get_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
     let guard = CONFIGURATION_USECASES.lock().await;
-    let usecases_ref = guard.borrow();
-    let usecases = usecases_ref.as_ref().unwrap();
-    let config = usecases.get_device_config().unwrap_or_default();
+    let config_usecases_ref = guard.borrow();
+    let config_usecases = config_usecases_ref.as_ref().unwrap();
+    let config = config_usecases.get_device_config().unwrap_or_default();
 
     conn.write_json(&config).await
 }
@@ -91,7 +90,8 @@ async fn handle_set_configuration(mut conn: HttpConnection<'_>) -> HttpResult {
         .map_err(|_| HttpError::NoData)?;
     #[cfg(feature = "log")]
     println!("handle_set_configuration: configuration set");
-    conn.write_headers(&ResponseHeaders::success_no_content()).await?;
+    conn.write_headers(&ResponseHeaders::success_no_content())
+        .await?;
     #[cfg(feature = "log")]
     println!("handle_set_configuration: headers written");
     Ok(())
@@ -103,7 +103,6 @@ async fn handle_boot(mut conn: HttpConnection<'_>) -> HttpResult {
     let usecases = usecases_ref.as_mut().unwrap();
     usecases
         .boot_system()
-        .await
         .map_err(|_| HttpError::NoData)?;
     conn.write_headers(&ResponseHeaders::success_no_content())
         .await?;

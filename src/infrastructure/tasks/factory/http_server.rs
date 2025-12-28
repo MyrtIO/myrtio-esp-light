@@ -6,7 +6,10 @@
 use embassy_net::Stack;
 use esp_println::println;
 
-use crate::{controllers::FactoryHttpController, core::net::http::HttpServer};
+use crate::{
+    controllers::factory::FactoryHttpController,
+    core::net::http::HttpServer,
+};
 
 const HTTP_PORT: u16 = 80;
 const RX_BUFFER_SIZE: usize = 4096;

@@ -23,7 +23,7 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 use myrtio_esp_light::{
     app::{ConfigurationUsecases, FirmwareUsecases},
-    controllers::{init_button_controller, init_factory_controllers},
+    controllers::{factory::{handle_boot_button_click, init_factory_controllers}, },
     domain::{
         dto::LightChangeIntent,
         ports::{
@@ -33,6 +33,7 @@ use myrtio_esp_light::{
         },
     },
     infrastructure::{
+        adapters::{bind_boot_button, BootButtonCallback},
         drivers::init_network_stack_ap,
         services::{
             LightStateService,
@@ -139,6 +140,12 @@ async fn main(spawner: Spawner) -> ! {
         .unwrap();
 
     let handler = init_factory_controllers(configuration, firmware).await;
+
+    bind_boot_button(
+        peripherals.IO_MUX,
+        peripherals.GPIO0,
+        handle_boot_button_click,
+    );
 
     // Spawn HTTP server
     spawner.spawn(http_server_task(stack, handler)).ok();

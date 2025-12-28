@@ -18,6 +18,14 @@ build-app *ARGS:
         --bin {{APP_MAIN_NAME}} \
         {{ARGS}}
 
+build-ota:
+    just build-app --release
+    @espflash save-image \
+        --chip esp32 \
+        --partition-table={{PARTITION_TABLE}} \
+        {{APP_RELEASE_PATH}} \
+        {{OTA_PATH}}
+
 build-factory *ARGS:
     #!/bin/bash
     source $HOME/export-esp.sh
@@ -36,12 +44,7 @@ run *ARGS:
         --release \
         {{ARGS}}
 
-ota: build-app
-    @espflash save-image \
-        --chip esp32 \
-        --partition-table={{PARTITION_TABLE}} \
-        {{APP_RELEASE_PATH}} \
-        {{OTA_PATH}}
+ota: build-ota
     @echo "Sending app..."
     @curl -X POST http://192.168.4.1/api/ota \
         --data-binary "@{{OTA_PATH}}"

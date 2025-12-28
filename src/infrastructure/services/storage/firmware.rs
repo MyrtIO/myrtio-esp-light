@@ -1,3 +1,5 @@
+use embassy_executor::Spawner;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
 use esp_bootloader_esp_idf::{
     ota::OtaImageState,
@@ -29,17 +31,11 @@ const ALIGN: usize = 4;
 const ERASE_SECTOR: u32 = 4096;
 
 #[derive(Default)]
-pub struct OtaService;
+pub struct FirmwareService;
 
-impl OtaService {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
+impl FirmwareService {}
 
-impl OtaService {}
-
-impl HttpFirmwareUpdater for OtaService {
+impl HttpFirmwareUpdater for FirmwareService {
     async fn update_firmware_from_http(
         &self,
         conn: &mut impl AsyncChunkedReader,
@@ -140,32 +136,56 @@ impl HttpFirmwareUpdater for OtaService {
     }
 }
 
-impl OtaService {
+impl FirmwareService {
     async fn set_boot_sector(
         &mut self,
         slot: BootSlot,
     ) -> Result<(), FirmwareError> {
-        StorageState::set(StorageState::UpdatingBootSector);
-
         let guard = FLASH_STORAGE.lock().await;
         let mut cell = guard.borrow_mut();
         let flash_ref = cell.as_mut().unwrap();
         let mut repo = BootManager::new(flash_ref);
-        repo.write_boot_sector(slot)
+
+        repo.write_boot_sector(slot)?;
+
+        Ok(())
     }
 }
 
-impl BootSectorSelector for OtaService {
-    async fn boot_system(&mut self) -> Result<(), FirmwareError> {
-        self.set_boot_sector(BootSlot::System).await
+static BOOT_TO_SECTOR_CHANNEL: Channel<CriticalSectionRawMutex, BootSlot, 1> =
+    Channel::new();
+
+impl BootSectorSelector for FirmwareService {
+    fn boot_system(&mut self) -> Result<(), FirmwareError> {
+        BOOT_TO_SECTOR_CHANNEL
+            .try_send(BootSlot::System)
+            .map_err(|_| FirmwareError::AlreadyBooting)?;
+        Ok(())
     }
 
-    async fn boot_factory(&mut self) -> Result<(), FirmwareError> {
-        self.set_boot_sector(BootSlot::Factory).await
+    fn boot_factory(&mut self) -> Result<(), FirmwareError> {
+        BOOT_TO_SECTOR_CHANNEL
+            .try_send(BootSlot::Factory)
+            .map_err(|_| FirmwareError::AlreadyBooting)?;
+        Ok(())
     }
 }
 
-impl FirmwareHandler for OtaService {}
+impl FirmwareHandler for FirmwareService {}
+
+pub(super) fn init_boot_to_sector_task(spawner: Spawner) {
+    spawner.spawn(boot_to_sector_task()).unwrap();
+}
+
+#[embassy_executor::task]
+async fn boot_to_sector_task() {
+    let slot = BOOT_TO_SECTOR_CHANNEL.receive().await;
+    let mut service = FirmwareService;
+    StorageState::wait_for_idle().await;
+    StorageState::set(StorageState::UpdatingBootSector);
+    service.set_boot_sector(slot).await.unwrap();
+    esp_hal::system::software_reset();
+}
 
 #[allow(clippy::cast_possible_truncation)]
 fn write_aligned_data<F: embedded_storage::nor_flash::NorFlash>(

@@ -8,4 +8,7 @@ pub mod drivers;
 pub mod repositories;
 pub mod services;
 pub mod tasks;
-pub(crate) mod types;
+pub mod adapters;
+
+pub mod types;
+

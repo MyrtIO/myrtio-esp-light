@@ -2,7 +2,6 @@ use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
-use esp_println::println;
 
 use super::FLASH_STORAGE;
 use crate::{
@@ -10,7 +9,12 @@ use crate::{
     domain::{
         dto::PersistentData,
         entity::LightState,
-        ports::{PersistenceError, PersistentDataHandler, PersistentDataReader, PersistentDataWriter},
+        ports::{
+            PersistenceError,
+            PersistentDataHandler,
+            PersistentDataReader,
+            PersistentDataWriter,
+        },
     },
     infrastructure::{
         repositories::AppPersistentStorage,
@@ -92,7 +96,8 @@ async fn light_state_persistence_task(debounce: Duration) {
                         "persistence: writing device config: {:?}",
                         config
                     );
-                    write_persistent_data(PersistentData::DeviceConfig(config)).await;
+                    write_persistent_data(PersistentData::DeviceConfig(config))
+                        .await;
                 }
             },
             Either::Second(()) => {
@@ -115,7 +120,8 @@ pub(super) fn init_persistence_service(spawner: Spawner) -> PersistenceService {
     spawner
         .spawn(light_state_persistence_task(LIGHT_STATE_WRITE_DEBOUNCE))
         .ok();
-    PersistenceService::default()
+
+    PersistenceService
 }
 
 /// Write the persistent data to the storage

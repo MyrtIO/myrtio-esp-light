@@ -10,17 +10,12 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 use myrtio_esp_light::{
     app::{ConfigurationUsecases, FirmwareUsecases, LightUsecases},
-    controllers::init_app_controllers,
+    controllers::app::{handle_boot_button_click, init_app_controllers},
     domain::ports::{LightConfigChanger, LightStateChanger, PersistentDataReader},
     infrastructure::{
-        drivers::{init_network_stack, wait_for_connection},
-        services::{
-            LightStateService,
-            PersistenceService,
-            init_light_service,
-            init_storage_services,
-        },
-        tasks::app::{mqtt_client_task, network_runner_task, wifi_connection_task},
+        adapters::bind_boot_button, drivers::{init_network_stack, wait_for_connection}, services::{
+            init_light_service, init_storage_services, LightStateService, PersistenceService
+        }, tasks::app::{mqtt_client_task, network_runner_task, wifi_connection_task}
     },
     mk_static,
 };
@@ -81,7 +76,9 @@ async fn main(spawner: Spawner) -> ! {
 
     let firmware = FirmwareUsecases::new(ota_service);
 
-    let mqtt_module = init_app_controllers(light);
+    let mqtt_module = init_app_controllers(light, firmware);
+
+    bind_boot_button(peripherals.IO_MUX, peripherals.GPIO0, handle_boot_button_click);
 
     // Validate config and start network if provisioned
     let config_valid = !config.wifi.ssid.is_empty() && !config.mqtt.host.is_empty();

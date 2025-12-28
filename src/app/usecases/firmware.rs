@@ -20,12 +20,12 @@ impl<P: FirmwareHandler> FirmwareUsecases<P> {
 }
 
 impl<P: FirmwareHandler> BootSectorSelector for FirmwareUsecases<P> {
-    async fn boot_system(&mut self) -> Result<(), FirmwareError> {
-        self.firmware.boot_system().await
+    fn boot_system(&mut self) -> Result<(), FirmwareError> {
+        self.firmware.boot_system()
     }
 
-    async fn boot_factory(&mut self) -> Result<(), FirmwareError> {
-        self.firmware.boot_factory().await
+    fn boot_factory(&mut self) -> Result<(), FirmwareError> {
+        self.firmware.boot_factory()
     }
 }
 
