@@ -1,3 +1,5 @@
+use core::future::Future;
+
 use embassy_net::{Stack, tcp::TcpSocket};
 use embassy_time::Duration;
 #[cfg(feature = "log")]
@@ -5,20 +7,23 @@ use esp_println::println;
 
 use super::{HttpResult, connection::HttpConnection};
 
-pub(crate) trait HttpHandler {
-    async fn handle_request(&self, conn: HttpConnection<'_>) -> HttpResult;
+pub trait HttpHandler {
+    fn handle_request<'a>(
+        &'a self,
+        conn: HttpConnection<'a>,
+    ) -> impl Future<Output = HttpResult> + 'a;
 }
 
 pub(crate) struct HttpServer<
     'a,
-    T: HttpHandler,
+    T: HttpHandler + ?Sized,
     const TX_SIZE: usize,
     const RX_SIZE: usize,
 > {
     handler: &'a T,
 }
 
-impl<'a, T: HttpHandler, const TX_SIZE: usize, const RX_SIZE: usize>
+impl<'a, T: HttpHandler + ?Sized, const TX_SIZE: usize, const RX_SIZE: usize>
     HttpServer<'a, T, TX_SIZE, RX_SIZE>
 {
     pub(crate) fn new(handler: &'a T) -> Self {
@@ -26,7 +31,7 @@ impl<'a, T: HttpHandler, const TX_SIZE: usize, const RX_SIZE: usize>
     }
 }
 
-impl<T: HttpHandler, const TX_SIZE: usize, const RX_SIZE: usize>
+impl<T: HttpHandler + ?Sized, const TX_SIZE: usize, const RX_SIZE: usize>
     HttpServer<'_, T, TX_SIZE, RX_SIZE>
 {
     pub(crate) async fn listen_and_serve(
@@ -55,8 +60,7 @@ impl<T: HttpHandler, const TX_SIZE: usize, const RX_SIZE: usize>
 
             if let Err(_e) = self.handler.handle_request(conn).await {
                 #[cfg(feature = "log")]
-                println!("http_server: connection error: {:?}", _e);
-                // continue;
+                println!("http_server: handler error: {:?}", _e);
             }
         }
     }

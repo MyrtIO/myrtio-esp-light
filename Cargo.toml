@@ -53,6 +53,7 @@ embedded-hal-async = "1.0.0"
 embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
 embedded-storage = "0.3.1"
+async-trait-static = "0.1.4"
 
 critical-section = "1.2.0"
 static_cell = { version = "2.1.0", features = ["nightly"] }

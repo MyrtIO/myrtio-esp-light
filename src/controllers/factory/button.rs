@@ -1,7 +1,4 @@
-use crate::{
-    controllers::factory::FIRMWARE_USECASES,
-    domain::ports::BootSectorSelector as _,
-};
+use crate::controllers::factory::FIRMWARE_USECASES;
 
 /// Handler for boot button click event
 pub fn handle_boot_button_click() {

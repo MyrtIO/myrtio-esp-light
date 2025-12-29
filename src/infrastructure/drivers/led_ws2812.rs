@@ -16,7 +16,7 @@ pub(crate) const MAX_LED_COUNT: usize = 128;
 ///
 /// This driver uses the ESP32's RMT (Remote Control) peripheral
 /// to generate the precise timing signals required by WS2812B LEDs.
-pub struct EspLedDriver<'a> {
+pub(crate) struct EspLedDriver<'a> {
     adapter: SmartLedsAdapter<'a, { buffer_size(MAX_LED_COUNT) }>,
 }
 

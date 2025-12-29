@@ -7,14 +7,15 @@ pub(crate) use headers::{
     ContentEncoding,
     ContentHeaders,
     ContentType,
-    HttpMethod,
     ResponseHeaders,
     TextEncoding,
 };
-pub(crate) use server::{HttpHandler, HttpServer};
+pub(crate) use headers::HttpMethod;
+pub(crate) use server::HttpHandler;
+pub(crate) use server::HttpServer;
 
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     Closed,
     Parse,
     NoData,
@@ -35,4 +36,4 @@ impl From<embassy_net::tcp::Error> for Error {
     }
 }
 
-pub(crate) type HttpResult = Result<(), Error>;
+pub type HttpResult = Result<(), Error>;

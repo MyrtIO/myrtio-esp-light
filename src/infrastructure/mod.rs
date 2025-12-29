@@ -7,7 +7,6 @@
 pub mod drivers;
 pub mod repositories;
 pub mod services;
-pub mod tasks;
 pub mod adapters;
 
 pub mod types;

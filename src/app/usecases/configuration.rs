@@ -23,6 +23,7 @@ impl From<LightError> for ConfigurationError {
         match error {
             LightError::Busy => ConfigurationError::StorageBusy,
             LightError::PersistenceError => ConfigurationError::StackOverflow,
+            LightError::TooManyLEDs => ConfigurationError::TooManyLEDs,
         }
     }
 }

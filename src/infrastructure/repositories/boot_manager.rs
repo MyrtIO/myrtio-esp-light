@@ -71,6 +71,6 @@ impl ports::BootSectorReader for BootManager {
             ota.current_app_partition()
                 .map_err(|_| ports::FirmwareError::InvalidPartitionTable)
         });
-        sub_type.map(|sub_type| sub_type.into())
+        sub_type.map(core::convert::Into::into)
     }
 }

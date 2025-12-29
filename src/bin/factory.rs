@@ -17,15 +17,16 @@ use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
     gpio::{Level, Output, OutputConfig},
+    peripherals,
     timer::timg::TimerGroup,
 };
 use esp_println::println;
-use esp_storage::FlashStorage;
 use myrtio_esp_light::{
     app::{ConfigurationUsecases, FirmwareUsecases},
-    controllers::{factory::{handle_boot_button_click, init_factory_controllers}, },
+    config,
+    controllers::factory::{self, FactoryHttpController, init_factory_controllers},
     domain::{
-        dto::LightChangeIntent,
+        entity::LightState,
         ports::{
             LightConfigChanger as _,
             LightStateChanger as _,
@@ -33,36 +34,19 @@ use myrtio_esp_light::{
         },
     },
     infrastructure::{
-        adapters::{bind_boot_button, BootButtonCallback},
-        drivers::init_network_stack_ap,
-        services::{
-            LightStateService,
-            PersistenceService,
-            init_light_service,
-            init_storage_services,
-        },
-        tasks::factory::{
-            dhcp_server_task,
-            factory_network_runner_task,
-            factory_wifi_ap_task,
-            http_server_task,
-        },
+        adapters::{self},
+        drivers::{self, WifiApConfig},
+        services::{self},
+        types::{ConfigurationUsecasesImpl, FirmwareUsecasesImpl},
     },
     mk_static,
 };
-use static_cell::StaticCell;
 
 esp_bootloader_esp_idf::esp_app_desc!();
-
-static FLASH_STORAGE: StaticCell<FlashStorage<'static>> = StaticCell::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     esp_println::logger::init_logger_from_env();
-
-    println!("=================================");
-    println!("  MyrtIO Factory Firmware");
-    println!("=================================");
 
     // Initialize hardware
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -78,84 +62,73 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
-    // Initialize flash storage (shared between HTTP server for config and OTA)
-    let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
-    let flash_ptr = flash as *mut FlashStorage<'static>;
+    // Initialize Services
+    services::init_flash_storage(peripherals.FLASH).await;
+    let firmware_service = services::init_firmware(spawner);
+    let persistence_service = services::init_persistence(spawner);
 
-    // Initialize network stack for AP mode
-    let (stack, runner, controller) = init_network_stack_ap(peripherals.WIFI);
-
-    // Spawn WiFi AP task
-    spawner.spawn(factory_wifi_ap_task(controller)).ok();
-
-    // Spawn network runner
-    spawner.spawn(factory_network_runner_task(runner)).ok();
-
-    loop {
-        if stack.is_link_up() {
-            break;
-        }
-        embassy_time::Timer::after(Duration::from_millis(100)).await;
-    }
-    println!("AP link is up!");
-
-    // Additional delay for stability
-    embassy_time::Timer::after(Duration::from_millis(500)).await;
-
-    // Spawn DHCP server
-    spawner.spawn(dhcp_server_task(stack)).ok();
-
-    let mut light_service = init_light_service(
+    // Initialize light service
+    let mut light_service = services::init_light(
         spawner,
         peripherals.RMT,
         myrtio_esp_light::led_gpio!(peripherals),
     );
 
-    let (ota_service, persistence_service) =
-        init_storage_services(spawner, flash_ptr).await;
-
-    let (_light_state, config) = persistence_service
+    // Configure light
+    let (_, device_config) = persistence_service
         .read_persistent_data()
         .unwrap_or_default();
-
     light_service
-        .set_config(config.light)
-        .expect("Failed to set light config");
+        .apply_light_intent(LightState::default().into())
+        .unwrap();
+    light_service.set_config(device_config.light).unwrap();
 
-    let firmware = FirmwareUsecases::new(ota_service);
-
+    // Initialize usecases
     let configuration = mk_static!(
-        ConfigurationUsecases<PersistenceService, LightStateService>,
-        ConfigurationUsecases::new(persistence_service.clone(), light_service.clone())
+        ConfigurationUsecasesImpl,
+        ConfigurationUsecases::new(persistence_service, light_service)
+    );
+    let firmware_usecases = mk_static!(
+        FirmwareUsecasesImpl,
+        FirmwareUsecases::new(firmware_service)
     );
 
-    light_service
-        .apply_light_intent(LightChangeIntent {
-            power: Some(true),
-            brightness: Some(255),
-            color: Some((255, 255, 255)),
-            color_temp: None,
-            mode_id: Some(myrtio_light_composer::ModeId::Static as u8),
-        })
-        .unwrap();
-
-    let handler = init_factory_controllers(configuration, firmware).await;
-
-    bind_boot_button(
+    // Bind boot button
+    adapters::bind_boot_button(
         peripherals.IO_MUX,
         peripherals.GPIO0,
-        handle_boot_button_click,
+        factory::handle_boot_button_click,
     );
 
-    // Spawn HTTP server
-    spawner.spawn(http_server_task(stack, handler)).ok();
+    let stack = drivers::start_wifi_ap(
+        spawner,
+        peripherals.WIFI,
+        WifiApConfig {
+            ssid: config::access_point_name(),
+            ip_address: config::FACTORY_AP_IP_ADDRESS,
+            gateway: config::FACTORY_AP_GATEWAY,
+            prefix_len: config::FACTORY_AP_PREFIX_LEN,
+        },
+    )
+    .await;
+
+    let handler = mk_static!(
+        FactoryHttpController,
+        init_factory_controllers(configuration, firmware_usecases).await
+    );
 
     println!("Factory firmware ready!");
     println!("Connect to WiFi: MyrtIO-Setup-XXXX");
     println!("Open http://192.168.4.1 in browser");
 
-    let mut pin =
-        Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
+    adapters::run_http_server(stack, handler).await;
+
+    unreachable!();
+}
+
+#[embassy_executor::task]
+async fn blink_led_task(gpio: peripherals::GPIO0<'static>) {
+    let mut pin = Output::new(gpio, Level::High, OutputConfig::default());
     loop {
         pin.set_high();
         embassy_time::Timer::after(Duration::from_millis(500)).await;

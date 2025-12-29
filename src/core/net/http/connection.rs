@@ -40,7 +40,7 @@ pub(crate) trait AsyncWriter {
 }
 
 /// HTTP connection context
-pub(crate) struct HttpConnection<'a> {
+pub struct HttpConnection<'a> {
     pub method: HttpMethod,
     pub path: heapless::String<64>,
 

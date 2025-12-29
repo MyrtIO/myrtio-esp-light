@@ -4,6 +4,7 @@ use crate::config::DeviceConfig;
 pub enum ConfigurationError {
     StorageBusy,
     StackOverflow,
+    TooManyLEDs,
 }
 
 pub trait ConfigurationReader {

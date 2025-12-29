@@ -1,29 +1,33 @@
 #![no_std]
 #![no_main]
+#![feature(type_alias_impl_trait)]
 
 use embassy_executor::Spawner;
-use embassy_time::Duration;
+use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 use esp_println::println;
-use esp_storage::FlashStorage;
 use myrtio_esp_light::{
-    app::{ConfigurationUsecases, FirmwareUsecases, LightUsecases},
+    app::{FirmwareUsecases, LightUsecases},
+    config::hostname,
     controllers::app::{handle_boot_button_click, init_app_controllers},
-    domain::ports::{LightConfigChanger, LightStateChanger, PersistentDataReader},
+    domain::ports::{
+        BootSectorSelector,
+        LightConfigChanger,
+        LightStateChanger,
+        PersistentDataReader,
+    },
     infrastructure::{
-        adapters::bind_boot_button, drivers::{init_network_stack, wait_for_connection}, services::{
-            init_light_service, init_storage_services, LightStateService, PersistenceService
-        }, tasks::app::{mqtt_client_task, network_runner_task, wifi_connection_task}
+        adapters::{self},
+        drivers::{self},
+        services::{self},
+        types::LightUsecasesImpl,
     },
     mk_static,
 };
-use static_cell::StaticCell;
 
 esp_bootloader_esp_idf::esp_app_desc!();
-
-static FLASH_STORAGE: StaticCell<FlashStorage<'static>> = StaticCell::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
@@ -43,76 +47,67 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
-    // Initialize flash storage and get initial state + config
-    let flash = FLASH_STORAGE.init(FlashStorage::new(peripherals.FLASH));
-    let flash_ptr = flash as *mut FlashStorage<'static>;
+    // Initialize flash services
+    services::init_flash_storage(peripherals.FLASH).await;
+    let firmware_service = services::init_firmware(spawner);
+    let persistence_service = services::init_persistence(spawner);
 
-    let (ota_service, persistence_service) =
-        init_storage_services(spawner, flash_ptr).await;
-
-    let mut light_service = init_light_service(
+    // Initialize light service
+    let mut light_service = services::init_light(
         spawner,
         peripherals.RMT,
         myrtio_esp_light::led_gpio!(peripherals),
     );
 
+    // Configure light
     let (light_state, config) = persistence_service
         .read_persistent_data()
         .unwrap_or_default();
-
     light_service
         .apply_light_intent(light_state.into())
         .unwrap();
     light_service.set_config(config.light).unwrap();
 
-    let configuration = mk_static!(
-        ConfigurationUsecases<PersistenceService, LightStateService>,
-        ConfigurationUsecases::new(persistence_service.clone(), light_service.clone())
-    );
-    let light = mk_static!(
-        LightUsecases<LightStateService, PersistenceService>,
+    // Initialize usecases
+    let light_usecases = mk_static!(
+        LightUsecasesImpl,
         LightUsecases::new(light_service, persistence_service)
     );
-
-    let firmware = FirmwareUsecases::new(ota_service);
-
-    let mqtt_module = init_app_controllers(light, firmware);
-
-    bind_boot_button(peripherals.IO_MUX, peripherals.GPIO0, handle_boot_button_click);
+    let mut firmware_usecases = FirmwareUsecases::new(firmware_service);
 
     // Validate config and start network if provisioned
     let config_valid = !config.wifi.ssid.is_empty() && !config.mqtt.host.is_empty();
-
     if !config_valid {
-        println!("app: no provisioned config; run factory provisioning");
-        println!("app: wifi and mqtt will not start");
+        println!("app: no provisioned config; rebooting to factory firmware");
+        firmware_usecases.boot_factory().unwrap();
         loop {
-            embassy_time::Timer::after(Duration::from_secs(60)).await;
+            Timer::after(Duration::from_secs(60)).await;
         }
     }
-
     println!("app: using wifi ssid: {}", config.wifi.ssid);
     println!(
         "app: using mqtt host: {}:{}",
         config.mqtt.host, config.mqtt.port
     );
+    let stack = drivers::start_wifi_sta(
+        spawner,
+        peripherals.WIFI,
+        config.wifi.ssid,
+        config.wifi.password,
+        hostname(),
+    )
+    .await;
 
-    // Initialize network stack and spawn network tasks
-    let (stack, runner, controller) = init_network_stack(peripherals.WIFI);
-    spawner
-        .spawn(wifi_connection_task(controller, config.wifi.clone()))
-        .ok();
-    spawner.spawn(network_runner_task(runner)).ok();
-
-    // Wait for network connection before starting network-dependent tasks
-    wait_for_connection(stack).await;
-
-    // Spawn MQTT task
-    spawner
-        .spawn(mqtt_client_task(stack, mqtt_module, config.mqtt.clone()))
-        .ok();
+    // Initialize adapters
+    let mqtt_module = init_app_controllers(light_usecases, firmware_usecases);
+    adapters::bind_boot_button(
+        peripherals.IO_MUX,
+        peripherals.GPIO0,
+        handle_boot_button_click,
+    );
+    adapters::start_mqtt_client(spawner, stack, mqtt_module, config.mqtt);
 
     loop {
-        embassy_time::Timer::after(Duration::from_secs(5)).await;
+        Timer::after(Duration::from_secs(5)).await;
     }
 }

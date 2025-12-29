@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use embassy_net::Ipv4Address;
 use embassy_time::Duration;
 use heapless::String;
 use myrtio_light_composer::TransitionTimings;
@@ -27,6 +28,18 @@ pub const LIGHT_STATE_WRITE_DEBOUNCE: Duration = Duration::from_millis(5000);
 
 /// Maximum supported LED count
 pub const LED_COUNT_MAX: usize = 128;
+
+/// Maximum supported connections
+pub const MAX_NETWORK_CONNECTIONS: usize = 6;
+
+/// Factory Access Point IP address
+pub const FACTORY_AP_IP_ADDRESS: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
+
+/// Factory Access Point gateway
+pub const FACTORY_AP_GATEWAY: Ipv4Address = Ipv4Address::new(192, 168, 4, 1);
+
+/// Factory Access Point prefix length
+pub const FACTORY_AP_PREFIX_LEN: u8 = 24;
 
 /// Default transition timings
 pub const DEFAULT_TRANSITION_TIMINGS: TransitionTimings = TransitionTimings {
@@ -92,8 +105,6 @@ pub struct DeviceConfig {
 
 /// Get the hardware ID from the last 4 bytes of the MAC address
 pub fn hardware_id() -> u32 {
-    let a: Option<DeviceConfig> = None;
-    let b = a.unwrap_or_default();
     let mac = esp_hal::efuse::Efuse::mac_address();
     u32::from_be_bytes([mac[2], mac[3], mac[4], mac[5]])
 }
@@ -101,6 +112,23 @@ pub fn hardware_id() -> u32 {
 /// Get the MAC address
 pub fn mac_address() -> [u8; 6] {
     esp_hal::efuse::Efuse::mac_address()
+}
+
+/// Get the hostname
+pub fn hostname() -> String<32> {
+    use core::fmt::Write;
+    let mut device_id = String::<32>::new();
+    let id = hardware_id();
+    let _ = write!(device_id, "myrtio-light-{:04X}", id);
+    device_id
+}
+
+pub fn access_point_name() -> String<32> {
+    use core::fmt::Write;
+    let mut device_id = String::<32>::new();
+    let id = hardware_id();
+    let _ = write!(device_id, "MyrtIO Светильник {:04X}", id);
+    device_id
 }
 
 /// Get the LED GPIO pin from the peripherals

@@ -9,6 +9,8 @@ pub enum LightError {
     Busy,
     /// Error persisting the light state
     PersistenceError,
+    /// Too many LEDs
+    TooManyLEDs,
 }
 
 /// Reader interface for the light state

@@ -9,7 +9,7 @@ use esp_hal::{
 };
 
 /// Callback type for button click handler
-pub type BootButtonCallback = fn();
+type BootButtonCallback = fn();
 
 /// Button input pin
 static BUTTON: Mutex<CriticalSectionRawMutex, RefCell<Option<Input>>> =

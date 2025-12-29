@@ -1,4 +1,9 @@
-use crate::{core::net::http::AsyncChunkedReader, domain::entity::BootSlot};
+extern crate alloc;
+
+use alloc::boxed::Box;
+use core::{future::Future, pin::Pin};
+
+use crate::{core::net::http::HttpConnection, domain::entity::BootSlot};
 
 /// Error type for the firmware operations
 #[derive(Debug)]
@@ -14,13 +19,18 @@ pub enum FirmwareError {
     Flash,
 }
 
-/// Trait for the HTTP firmware updater
+/// Trait for the HTTP firmware updater (object-safe)
 pub trait HttpFirmwareUpdater {
     /// Update the firmware from HTTP
-    fn update_firmware_from_http(
-        &self,
-        conn: &mut impl AsyncChunkedReader,
-    ) -> impl Future<Output = Result<(), FirmwareError>>;
+    ///
+    /// Note: Uses separate lifetimes to allow the mutex guard (`&self`) to have
+    /// a shorter lifetime than `conn`. The future lives as long as `&self`.
+    fn update_firmware_from_http<'s, 'c>(
+        &'s self,
+        conn: &'c mut HttpConnection<'_>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), FirmwareError>> + 's>>
+    where
+        'c: 's;
 }
 
 pub trait BootSectorWriter {

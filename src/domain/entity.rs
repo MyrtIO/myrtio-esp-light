@@ -41,7 +41,7 @@ impl LightState {
             brightness: 255,
             color: (255, 255, 255),
             color_temp: 4000,
-            mode_id: 1, // rainbow
+            mode_id: 0, // static
             color_mode: ColorMode::Rgb,
         }
     }
@@ -59,13 +59,4 @@ impl Default for LightState {
 pub enum BootSlot {
     System,
     Factory,
-}
-
-impl BootSlot {
-    pub(crate) const fn as_u8(self) -> u8 {
-        match self {
-            BootSlot::System => 0,
-            BootSlot::Factory => 1,
-        }
-    }
 }

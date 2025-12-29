@@ -1,11 +1,8 @@
-//! MQTT Runtime Task
-//!
-//! This module provides the infrastructure-level MQTT task that accepts any
-//! `MqttModule` implementation via a trait object.
-
-use embassy_net::{Stack, tcp::TcpSocket};
+use embassy_executor::Spawner;
+use embassy_net::{IpAddress, Stack, dns::DnsQueryType, tcp::TcpSocket};
 use embassy_sync::channel::Channel;
 use embassy_time::Duration;
+#[cfg(feature = "log")]
 use esp_println::println;
 use heapless::String;
 use myrtio_mqtt::{
@@ -16,7 +13,6 @@ use myrtio_mqtt::{
 
 use crate::{
     config::{MqttConfig, hardware_id},
-    infrastructure::drivers::resolve_host,
     mk_static,
 };
 
@@ -27,6 +23,17 @@ const MQTT_BUF_SIZE: usize = 2048;
 static PUBLISH_CHANNEL: PublishRequestChannel<'static, MQTT_OUTBOX_DEPTH> =
     Channel::new();
 
+pub fn start_mqtt_client(
+    spawner: Spawner,
+    stack: Stack<'static>,
+    module: &'static mut dyn MqttModule,
+    mqtt_config: MqttConfig,
+) {
+    spawner
+        .spawn(mqtt_client_task(stack, module, mqtt_config))
+        .ok();
+}
+
 /// MQTT runtime task that accepts any module implementing `MqttModule`.
 #[embassy_executor::task]
 pub async fn mqtt_client_task(
@@ -34,10 +41,12 @@ pub async fn mqtt_client_task(
     module: &'static mut dyn MqttModule,
     mqtt_config: MqttConfig,
 ) {
+    #[cfg(feature = "log")]
     println!("mqtt: starting runtime task");
     let mut rx_buffer = [0u8; 1024];
     let mut tx_buffer = [0u8; 1024];
     let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
+    #[cfg(feature = "log")]
     println!("mqtt: device id: {}", device_id);
     loop {
         if let Err(_e) = run_mqtt_client(
@@ -50,6 +59,7 @@ pub async fn mqtt_client_task(
         )
         .await
         {
+            #[cfg(feature = "log")]
             println!("mqtt: connection lost, reconnecting in 2s...");
             embassy_time::Timer::after(Duration::from_secs(2)).await;
         }
@@ -76,17 +86,20 @@ async fn run_mqtt_client(
 
     let broker_addr = resolve_host(stack, mqtt_config.host.as_str()).await?;
 
+    #[cfg(feature = "log")]
     println!(
         "mqtt: connecting to broker {:?}:{}...",
         broker_addr, mqtt_config.port
     );
 
     let connection_result = socket.connect((broker_addr, mqtt_config.port)).await;
-    if let Err(e) = connection_result {
+    if let Err(_e) = connection_result {
         socket.abort();
-        println!("mqtt: TCP connect failed: {:?}", e);
+        #[cfg(feature = "log")]
+        println!("mqtt: TCP connect failed: {:?}", _e);
         return Err(());
     }
+    #[cfg(feature = "log")]
     println!("mqtt: TCP socket connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
@@ -105,7 +118,21 @@ async fn run_mqtt_client(
         MQTT_OUTBOX_DEPTH,
     > = MqttRuntime::new(mqtt, module, PUBLISH_CHANNEL.receiver());
 
-    runtime.run().await.map_err(|e| {
-        println!("mqtt: runtime error: {:?}", e);
+    runtime.run().await.map_err(|_e| {
+        #[cfg(feature = "log")]
+        println!("mqtt: runtime error: {:?}", _e);
     })
+}
+
+/// Resolves a hostname to an IP address
+async fn resolve_host(stack: Stack<'static>, host: &str) -> Result<IpAddress, ()> {
+    if let Ok(ip) = host.parse::<embassy_net::Ipv4Address>() {
+        return Ok(IpAddress::Ipv4(ip));
+    }
+
+    let Ok(addresses) = stack.dns_query(host, DnsQueryType::A).await else {
+        return Err(());
+    };
+
+    addresses.first().copied().ok_or(())
 }

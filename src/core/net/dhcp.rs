@@ -5,8 +5,6 @@
 
 use embassy_net::Ipv4Address;
 
-use crate::infrastructure::drivers::AP_IP_ADDRESS;
-
 /// DHCP message types
 pub(crate) const DHCP_DISCOVER: u8 = 1;
 pub(crate) const DHCP_OFFER: u8 = 2;
@@ -94,6 +92,7 @@ pub(crate) fn allocate_ip(mac: &[u8; 6]) -> Ipv4Address {
 ///
 /// Returns the length of the response packet
 pub(crate) fn build_dhcp_response(
+    ap_ip_address: Ipv4Address,
     buffer: &mut [u8],
     request: &DhcpRequest,
     offered_ip: Ipv4Address,
@@ -119,7 +118,7 @@ pub(crate) fn build_dhcp_response(
     buffer[16..20].copy_from_slice(&offered_ip.octets());
 
     // siaddr (server IP)
-    buffer[20..24].copy_from_slice(&AP_IP_ADDRESS.octets());
+    buffer[20..24].copy_from_slice(&ap_ip_address.octets());
 
     // giaddr (gateway IP) - 0
 
@@ -143,7 +142,7 @@ pub(crate) fn build_dhcp_response(
     // Server identifier
     buffer[opt_idx] = DHCP_OPTION_SERVER_ID;
     buffer[opt_idx + 1] = 4;
-    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&AP_IP_ADDRESS.octets());
+    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&ap_ip_address.octets());
     opt_idx += 6;
 
     // Lease time
@@ -161,13 +160,13 @@ pub(crate) fn build_dhcp_response(
     // Router (gateway)
     buffer[opt_idx] = DHCP_OPTION_ROUTER;
     buffer[opt_idx + 1] = 4;
-    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&AP_IP_ADDRESS.octets());
+    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&ap_ip_address.octets());
     opt_idx += 6;
 
     // DNS server (use AP as DNS too for captive portal)
     buffer[opt_idx] = DHCP_OPTION_DNS;
     buffer[opt_idx + 1] = 4;
-    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&AP_IP_ADDRESS.octets());
+    buffer[opt_idx + 2..opt_idx + 6].copy_from_slice(&ap_ip_address.octets());
     opt_idx += 6;
 
     // End option

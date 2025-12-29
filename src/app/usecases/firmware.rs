@@ -1,5 +1,10 @@
+extern crate alloc;
+
+use alloc::boxed::Box;
+use core::{future::Future, pin::Pin};
+
 use crate::{
-    core::net::http::AsyncChunkedReader,
+    core::net::http::HttpConnection,
     domain::ports::{
         BootSectorSelector,
         FirmwareError,
@@ -32,11 +37,14 @@ impl<P: FirmwareHandler> BootSectorSelector for FirmwareUsecases<P> {
 impl<P: FirmwareHandler> FirmwareHandler for FirmwareUsecases<P> {}
 
 impl<P: FirmwareHandler> HttpFirmwareUpdater for FirmwareUsecases<P> {
-    async fn update_firmware_from_http(
-        &self,
-        conn: &mut impl AsyncChunkedReader,
-    ) -> Result<(), FirmwareError> {
-        self.firmware.update_firmware_from_http(conn).await
+    fn update_firmware_from_http<'s, 'c>(
+        &'s self,
+        conn: &'c mut HttpConnection<'_>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), FirmwareError>> + 's>>
+    where
+        'c: 's,
+    {
+        self.firmware.update_firmware_from_http(conn)
     }
 }
 

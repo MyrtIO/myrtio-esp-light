@@ -231,7 +231,7 @@ impl TargetWriter for ResponseHeaders {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum HttpMethod {
+pub enum HttpMethod {
     Get,
     Post,
     Put,

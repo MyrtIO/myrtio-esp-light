@@ -3,7 +3,7 @@ use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 
-use super::FLASH_STORAGE;
+use super::flash::FLASH_STORAGE;
 use crate::{
     config::{DeviceConfig, LIGHT_STATE_WRITE_DEBOUNCE},
     domain::{
@@ -16,12 +16,10 @@ use crate::{
             PersistentDataWriter,
         },
     },
-    infrastructure::{
-        repositories::AppPersistentStorage,
-        services::storage::state::StorageState,
-    },
+    infrastructure::repositories::AppPersistentStorage,
 };
 
+/// Size of the persistent data channel
 const PERSISTENT_DATA_CHANNEL_SIZE: usize = 4;
 
 /// Type alias for the persistent data channel
@@ -32,8 +30,22 @@ type PersistentDataChannel =
 pub(crate) static PERSISTENT_DATA_CHANNEL: PersistentDataChannel = Channel::new();
 
 /// Service for persisting persistent data
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct PersistenceService;
+
+impl PersistenceService {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+pub fn init_persistence(spawner: Spawner) -> PersistenceService {
+    spawner
+        .spawn(light_state_persistence_task(LIGHT_STATE_WRITE_DEBOUNCE))
+        .ok();
+
+    PersistenceService
+}
 
 impl PersistentDataWriter for PersistenceService {
     /// Save the light state to the persistence channel
@@ -51,18 +63,14 @@ impl PersistentDataReader for PersistenceService {
     fn read_persistent_data(
         &self,
     ) -> Result<(LightState, DeviceConfig), PersistenceError> {
-        FLASH_STORAGE
+        let mut flash = FLASH_STORAGE
             .try_lock()
-            .map_err(|_| PersistenceError::Busy)
-            .and_then(|guard| {
-                #[cfg(feature = "log")]
-                println!("read_persistent_data: successfully locked");
-                let mut cell = guard.borrow_mut();
-                let flash_ref = cell.as_mut().unwrap();
-                let storage = AppPersistentStorage::new(flash_ref, 0);
+            .map_err(|_| PersistenceError::Busy)?;
 
-                storage.read_persistent_data()
-            })
+        let flash_ptr = core::ptr::from_mut(&mut *flash);
+        let storage = AppPersistentStorage::new(flash_ptr, 0);
+        storage
+            .read_persistent_data()
             .map_err(|_| PersistenceError::DriverError)
     }
 }
@@ -89,8 +97,6 @@ async fn light_state_persistence_task(debounce: Duration) {
                     pending_state = Some(state);
                 }
                 PersistentData::DeviceConfig(config) => {
-                    StorageState::wait_for_idle().await;
-
                     #[cfg(feature = "log")]
                     esp_println::println!(
                         "persistence: writing device config: {:?}",
@@ -109,31 +115,19 @@ async fn light_state_persistence_task(debounce: Duration) {
                     "persistence: writing persistent data: {:?}",
                     state
                 );
-                StorageState::wait_for_idle().await;
                 write_persistent_data(PersistentData::LightState(state)).await;
             }
         }
     }
 }
 
-pub(super) fn init_persistence_service(spawner: Spawner) -> PersistenceService {
-    spawner
-        .spawn(light_state_persistence_task(LIGHT_STATE_WRITE_DEBOUNCE))
-        .ok();
-
-    PersistenceService
-}
-
 /// Write the persistent data to the storage
 async fn write_persistent_data(data: PersistentData) {
-    let guard = FLASH_STORAGE.lock().await;
-    let mut cell = guard.borrow_mut();
-    let flash_ref = cell.as_mut().unwrap();
-    let storage = AppPersistentStorage::new(flash_ref, 0);
+    let mut flash = FLASH_STORAGE.lock().await;
+    let flash_ptr = core::ptr::from_mut(&mut *flash);
+    let storage = AppPersistentStorage::new(flash_ptr, 0);
 
-    StorageState::run_with(StorageState::UpdatingPersistentData, || {
-        storage
-            .write_persistent_data(data)
-            .expect("error persisting persistent data");
-    });
+    storage
+        .write_persistent_data(data)
+        .expect("error persisting persistent data");
 }

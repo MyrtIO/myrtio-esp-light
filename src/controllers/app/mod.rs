@@ -9,8 +9,9 @@ use mqtt_homeassistant::init_mqtt_homeassistant_module;
 pub use myrtio_mqtt::runtime::MqttModule;
 
 use crate::{
+    app::FirmwareUsecases,
     domain::types::LightUsecasesPortRef,
-    infrastructure::types::FirmwareUsecasesImpl,
+    infrastructure::services::FirmwareService,
 };
 
 pub(super) static LIGHT_USECASES: Mutex<
@@ -20,13 +21,13 @@ pub(super) static LIGHT_USECASES: Mutex<
 
 pub(super) static FIRMWARE_USECASES: Mutex<
     CriticalSectionRawMutex,
-    RefCell<Option<FirmwareUsecasesImpl>>,
+    RefCell<Option<FirmwareUsecases<FirmwareService>>>,
 > = Mutex::new(RefCell::new(None));
 
 /// Initialize the app controllers with it's dependencies
 pub fn init_app_controllers(
     light: LightUsecasesPortRef,
-    firmware: FirmwareUsecasesImpl,
+    firmware: FirmwareUsecases<FirmwareService>,
 ) -> &'static mut dyn MqttModule {
     LIGHT_USECASES.lock(|cell| {
         cell.borrow_mut().replace(light);
