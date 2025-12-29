@@ -6,7 +6,7 @@ use heapless::String;
 
 use super::CONFIGURATION_USECASES;
 use crate::{
-    config::{self, DeviceConfig},
+    config::{self, DeviceConfig, LightConfig},
     core::net::http::{
         ContentEncoding,
         ContentHeaders,
@@ -38,6 +38,9 @@ impl HttpHandler for FactoryHttpController {
             }
             (HttpMethod::Post, "/api/configuration") => {
                 handle_set_configuration(&mut conn).await
+            }
+            (HttpMethod::Post, "/api/configuration/light") => {
+                handle_set_light_config(&mut conn).await
             }
             (HttpMethod::Post, "/api/boot") => handle_boot(&mut conn).await,
             (HttpMethod::Post, "/api/ota") => handle_ota_update(&mut conn).await,
@@ -84,7 +87,7 @@ async fn handle_set_configuration(conn: &mut HttpConnection<'_>) -> HttpResult {
     let mut usecases_ref = config_guard.borrow_mut();
     let usecases = usecases_ref.as_mut().unwrap();
     usecases
-        .set_device_config(&config)
+        .save_device_config(&config)
         .map_err(|_| HttpError::NoData)?;
     #[cfg(feature = "log")]
     println!("handle_set_configuration: configuration set");
@@ -92,6 +95,17 @@ async fn handle_set_configuration(conn: &mut HttpConnection<'_>) -> HttpResult {
         .await?;
     #[cfg(feature = "log")]
     println!("handle_set_configuration: headers written");
+    Ok(())
+}
+
+async fn handle_set_light_config(conn: &mut HttpConnection<'_>) -> HttpResult {
+    let config = conn.read_json::<LightConfig>().await?;
+    let config_guard = CONFIGURATION_USECASES.lock().await;
+    let mut usecases_ref = config_guard.borrow_mut();
+    let usecases = usecases_ref.as_mut().unwrap();
+    usecases.set_light_config(&config).map_err(|_| HttpError::NoData)?;
+    conn.write_headers(&ResponseHeaders::success_no_content())
+        .await?;
     Ok(())
 }
 

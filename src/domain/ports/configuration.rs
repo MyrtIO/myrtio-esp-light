@@ -1,7 +1,10 @@
-use crate::config::DeviceConfig;
+use crate::config::{DeviceConfig, LightConfig};
+
+use super::light::LightError;
 
 #[derive(Debug)]
 pub enum ConfigurationError {
+    LightError(LightError),
     StorageBusy,
     StackOverflow,
     TooManyLEDs,
@@ -14,15 +17,26 @@ pub trait ConfigurationReader {
 
 pub trait ConfigurationWriter {
     /// Set the device config
-    fn set_device_config(
+    fn save_device_config(
         &mut self,
         config: &DeviceConfig,
     ) -> Result<(), ConfigurationError>;
 }
 
-pub trait ConfigurationHandler:
+pub trait LightConfigurationSetter {
+    /// Set the device config
+    fn set_light_config(
+        &mut self,
+        config: &LightConfig,
+    ) -> Result<(), ConfigurationError>;
+}
+
+pub trait ConfigurationServicePort:
     ConfigurationReader + ConfigurationWriter + Sync + Send
 {
 }
 
-pub trait ConfigurationUsecasesPort: ConfigurationHandler {}
+pub trait ConfigurationUsecasesPort:
+    ConfigurationReader + LightConfigurationSetter + ConfigurationWriter + Sync + Send
+{
+}

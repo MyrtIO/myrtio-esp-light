@@ -114,20 +114,24 @@ pub fn mac_address() -> [u8; 6] {
     esp_hal::efuse::Efuse::mac_address()
 }
 
+const HOSTNAME_PREFIX: &str = "myrtio-light";
+
 /// Get the hostname
 pub fn hostname() -> String<32> {
     use core::fmt::Write;
     let mut device_id = String::<32>::new();
     let id = hardware_id();
-    let _ = write!(device_id, "myrtio-light-{:04X}", id);
+    let _ = write!(device_id, "{HOSTNAME_PREFIX}-{:04X}", id & 0xFFFF);
     device_id
 }
+
+const ACCESS_POINT_NAME_PREFIX: &str = "MyrtIO Светильник";
 
 pub fn access_point_name() -> String<32> {
     use core::fmt::Write;
     let mut device_id = String::<32>::new();
     let id = hardware_id();
-    let _ = write!(device_id, "MyrtIO Светильник {:04X}", id);
+    let _ = write!(device_id, "{ACCESS_POINT_NAME_PREFIX} {:04X}", id & 0xFFFF);
     device_id
 }
 

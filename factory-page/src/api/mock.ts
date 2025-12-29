@@ -1,4 +1,4 @@
-import type { Configuration, SystemInformation } from "../models";
+import type { Configuration, LightConfiguration, SystemInformation } from "../models";
 import type { ApiService, ProgressCallback } from "./interface";
 
 export class MockApiService implements ApiService {
@@ -30,6 +30,12 @@ export class MockApiService implements ApiService {
     console.log(`[mock] saving configuration`, {
       configuration,
     });
+    await simulateNetworkDelay();
+    return;
+  }
+
+  async setLightConfiguration(light: LightConfiguration): Promise<void> {
+    console.log(`[mock] setting light configuration`, { light });
     await simulateNetworkDelay();
     return;
   }

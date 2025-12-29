@@ -1,4 +1,4 @@
-import type { Configuration, SystemInformation } from "../models";
+import type { Configuration, LightConfiguration, SystemInformation } from "../models";
 import type { ApiService, ProgressCallback } from "./interface";
 
 export class FetchApiService implements ApiService {
@@ -54,6 +54,10 @@ export class FetchApiService implements ApiService {
 
   async saveConfiguration(configuration: Configuration): Promise<void> {
     return this.fetchPostJson("/configuration", configuration);
+  }
+
+  async setLightConfiguration(light: LightConfiguration): Promise<void> {
+    return this.fetchPostJson("/configuration/light", light);
   }
 
   async getSystemInformation(): Promise<SystemInformation> {

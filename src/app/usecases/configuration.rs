@@ -2,15 +2,16 @@
 use esp_println::println;
 
 use crate::{
-    config::DeviceConfig,
+    config::{DeviceConfig, LightConfig},
     domain::{
         dto::PersistentData,
         ports::{
             ConfigurationError,
-            ConfigurationHandler,
             ConfigurationReader,
+            ConfigurationServicePort,
             ConfigurationUsecasesPort,
             ConfigurationWriter,
+            LightConfigurationSetter,
             LightError,
             LightStateHandler,
             PersistentDataHandler,
@@ -60,7 +61,7 @@ impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationReader
 impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationWriter
     for ConfigurationUsecases<P, S>
 {
-    fn set_device_config(
+    fn save_device_config(
         &mut self,
         config: &DeviceConfig,
     ) -> Result<(), ConfigurationError> {
@@ -72,9 +73,22 @@ impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationWriter
     }
 }
 
-impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationHandler
+impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationServicePort
     for ConfigurationUsecases<P, S>
 {
+}
+
+impl<P: PersistentDataHandler, S: LightStateHandler> LightConfigurationSetter
+    for ConfigurationUsecases<P, S>
+{
+    fn set_light_config(
+        &mut self,
+        config: &LightConfig,
+    ) -> Result<(), ConfigurationError> {
+        self.state
+            .set_config(*config)
+            .map_err(ConfigurationError::LightError)
+    }
 }
 
 impl<P: PersistentDataHandler, S: LightStateHandler> ConfigurationUsecasesPort

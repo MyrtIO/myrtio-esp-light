@@ -26,14 +26,12 @@ async function main() {
 
   const systemForm = new SystemBlock(systemSection, onFirmwareUpdate, onBoot);
   const headerBlock = new HeaderBlock(header, onConfigurationSave);
-  const configurationForm = new ConfigurationBlock(
-    configForm,
-    onConfigurationDirty
-  );
-
-  function onConfigurationDirty() {
-    headerBlock.showSaveButton();
-  }
+  const configurationForm = new ConfigurationBlock(configForm, {
+    onDirty: () => headerBlock.showSaveButton(),
+    onLightChange: (light) => {
+      api.setLightConfiguration(light).catch(console.error);
+    },
+  });
 
   async function onBoot() {
     await api.bootSystem();

@@ -62,6 +62,9 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
+    // Start blinker
+    spawner.must_spawn(blink_led_task(peripherals.GPIO2));
+
     // Initialize Services
     services::init_flash_storage(peripherals.FLASH).await;
     let firmware_service = services::init_firmware(spawner);
@@ -127,7 +130,7 @@ async fn main(spawner: Spawner) -> ! {
 }
 
 #[embassy_executor::task]
-async fn blink_led_task(gpio: peripherals::GPIO0<'static>) {
+async fn blink_led_task(gpio: peripherals::GPIO2<'static>) {
     let mut pin = Output::new(gpio, Level::High, OutputConfig::default());
     loop {
         pin.set_high();

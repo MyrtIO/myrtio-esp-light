@@ -38,7 +38,7 @@ impl LightState {
     pub const fn new() -> Self {
         Self {
             power: true,
-            brightness: 255,
+            brightness: 20,
             color: (255, 255, 255),
             color_temp: 4000,
             mode_id: 0, // static

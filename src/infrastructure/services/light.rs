@@ -20,7 +20,7 @@ use myrtio_light_composer::{
 };
 
 use crate::{
-    config::{DEFAULT_TRANSITION_TIMINGS, LED_COUNT_MAX, LightConfig},
+    config::{self, LightConfig, DEFAULT_TRANSITION_TIMINGS, LED_COUNT_MAX},
     domain::{
         dto::LightChangeIntent,
         entity::{ColorMode, LightState},
@@ -97,7 +97,7 @@ impl LightConfigChanger for LightStateService {
         let correction = color::rgb_from_u32(config.color_correction);
         let bounds = RenderingBounds {
             start: config.skip_leds,
-            end: u8::try_from(LED_COUNT_MAX).map_err(|_| LightError::TooManyLEDs)?,
+            end: config.skip_leds + config.led_count,
         };
 
         send_intent_sync(LightIntent::ColorCorrectionChange(correction))?;
@@ -211,7 +211,7 @@ async fn light_engine_task(
 ) {
     let mut engine: LightEngine<
         LightDriver,
-        LED_COUNT_MAX,
+        { config::LED_COUNT_MAX },
         LIGHT_INTENT_CHANNEL_SIZE,
     > = LightEngine::new(driver, intents, &config);
 

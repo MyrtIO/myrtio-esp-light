@@ -29,13 +29,21 @@ type ToInputs<T> = {
   [K in keyof T]: T[K] extends object ? ToInputs<T[K]> : HTMLInputElement;
 };
 
+export interface ConfigurationBlockOptions {
+  onDirty: () => void;
+  onLightChange?: (light: LightConfiguration) => void;
+}
+
 export class ConfigurationBlock {
   private inputs: ToInputs<Configuration>;
   private isDirty: boolean = false;
   private form: HTMLFormElement;
   private colorPicker: HTMLInputElement;
+  private onLightChange?: (light: LightConfiguration) => void;
 
-  constructor(form: HTMLFormElement, onDirty: () => void) {
+  constructor(form: HTMLFormElement, options: ConfigurationBlockOptions) {
+    this.onLightChange = options.onLightChange;
+
     const $ = (name: string): HTMLInputElement => {
       const input = form.querySelector<HTMLInputElement>(`[name=${name}]`);
       if (!input) {
@@ -43,10 +51,17 @@ export class ConfigurationBlock {
       }
       input.addEventListener("change", () => {
         if (!this.isDirty) {
-          onDirty();
+          options.onDirty();
         }
         this.isDirty = true;
       });
+      return input;
+    };
+
+    // Helper to register light field with auto-send
+    const $light = (name: string): HTMLInputElement => {
+      const input = $(name);
+      input.addEventListener("change", () => this.emitLightChange());
       return input;
     };
 
@@ -63,11 +78,11 @@ export class ConfigurationBlock {
         password: $("mqtt_password"),
       },
       light: {
-        brightness_min: $("brightness_min"),
-        brightness_max: $("brightness_max"),
-        led_count: $("led_count"),
-        skip_leds: $("skip_leds"),
-        color_correction: $("color_correction"),
+        brightness_min: $light("brightness_min"),
+        brightness_max: $light("brightness_max"),
+        led_count: $light("led_count"),
+        skip_leds: $light("skip_leds"),
+        color_correction: $light("color_correction"),
       },
     };
 
@@ -75,7 +90,8 @@ export class ConfigurationBlock {
     this.colorPicker = document.getElementById("color_correction_picker") as HTMLInputElement;
     const hexInput = this.inputs.light.color_correction;
 
-    this.colorPicker.addEventListener("input", () => {
+    // Use "change" event so auto-send only fires on commit, not while dragging
+    this.colorPicker.addEventListener("change", () => {
       hexInput.value = this.colorPicker.value.toUpperCase();
       hexInput.dispatchEvent(new Event("change"));
     });
@@ -88,6 +104,27 @@ export class ConfigurationBlock {
         this.colorPicker.value = hexInput.value;
       }
     });
+  }
+
+  /** Emit light configuration change if callback is set and color is valid */
+  private emitLightChange() {
+    if (!this.onLightChange) return;
+    const hex = this.inputs.light.color_correction.value;
+    // Skip if color is invalid (no alert for auto-send)
+    if (!/^#[0-9A-F]{6}$/i.test(hex)) return;
+    this.onLightChange(this.getLightValues());
+  }
+
+  /** Get current light configuration values */
+  public getLightValues(): LightConfiguration {
+    const hex = this.inputs.light.color_correction.value.replace("#", "");
+    return {
+      brightness_min: parseInt(this.inputs.light.brightness_min.value) || 0,
+      brightness_max: parseInt(this.inputs.light.brightness_max.value) || 255,
+      led_count: parseInt(this.inputs.light.led_count.value) || 0,
+      skip_leds: parseInt(this.inputs.light.skip_leds.value) || 0,
+      color_correction: parseInt(hex, 16) || 0xFFFFFF,
+    };
   }
 
   public unlock() {
