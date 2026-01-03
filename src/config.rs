@@ -135,6 +135,16 @@ pub fn access_point_name() -> String<32> {
     device_id
 }
 
+const DEVICE_ID_PREFIX: &str = "myrtio_light";
+
+pub fn device_id() -> String<32> {
+    use core::fmt::Write;
+    let mut device_id = String::<32>::new();
+    let id = hardware_id();
+    let _ = write!(device_id, "{DEVICE_ID_PREFIX}_{:04X}", id & 0xFFFF);
+    device_id
+}
+
 /// Get the LED GPIO pin from the peripherals
 #[macro_export]
 macro_rules! led_gpio {

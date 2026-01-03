@@ -11,7 +11,7 @@ use esp_println::println;
 use myrtio_esp_light::{
     app::{FirmwareUsecases, LightUsecases},
     config::hostname,
-    controllers::app::{handle_boot_button_click, init_app_controllers},
+    controllers::app::{self, init_app_controllers},
     domain::ports::{
         BootSectorSelector,
         LightConfigChanger,
@@ -103,7 +103,7 @@ async fn main(spawner: Spawner) -> ! {
     adapters::bind_boot_button(
         peripherals.IO_MUX,
         peripherals.GPIO0,
-        handle_boot_button_click,
+        app::handle_boot_button_click,
     );
     adapters::start_mqtt_client(spawner, stack, mqtt_module, config.mqtt);
 

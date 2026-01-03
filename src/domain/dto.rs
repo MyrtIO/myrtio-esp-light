@@ -1,4 +1,5 @@
 use heapless::String;
+use myrtio_light_composer::{EffectId, LightStateIntent, Rgb};
 use serde::{Deserialize, Serialize};
 
 use crate::{config::DeviceConfig, domain::entity::LightState};
@@ -18,7 +19,19 @@ pub struct LightChangeIntent {
     /// Set color temperature to this value (1000-40000)
     pub color_temp: Option<u16>,
     /// Set mode by ID
-    pub mode_id: Option<u8>,
+    pub effect_id: Option<u8>,
+}
+
+impl From<LightChangeIntent> for LightStateIntent {
+    fn from(intent: LightChangeIntent) -> Self {
+        LightStateIntent {
+            power: intent.power,
+            brightness: intent.brightness,
+            color: intent.color.map(|(r, g, b)| Rgb::new(r, g, b)),
+            color_temperature: intent.color_temp,
+            effect_id: intent.effect_id.and_then(|id| EffectId::from_raw(id)),
+        }
+    }
 }
 
 impl LightChangeIntent {
@@ -29,7 +42,7 @@ impl LightChangeIntent {
             brightness: None,
             color: None,
             color_temp: None,
-            mode_id: None,
+            effect_id: None,
         }
     }
 
@@ -64,7 +77,7 @@ impl LightChangeIntent {
     /// Set effect
     #[must_use]
     pub(crate) const fn with_effect_id(mut self, effect_id: u8) -> Self {
-        self.mode_id = Some(effect_id);
+        self.effect_id = Some(effect_id);
         self
     }
 }
@@ -76,7 +89,7 @@ impl From<LightState> for LightChangeIntent {
             brightness: Some(state.brightness),
             color: Some(state.color),
             color_temp: Some(state.color_temp),
-            mode_id: Some(state.mode_id),
+            effect_id: Some(state.mode_id),
         }
     }
 }

@@ -6,7 +6,7 @@
 
 use embassy_time::Duration;
 use heapless::String;
-use myrtio_light_composer::ModeId;
+use myrtio_light_composer::EffectId;
 use myrtio_mqtt::runtime::MqttModule;
 use myrtio_mqtt_homeassistant::{
     ColorMode,
@@ -22,12 +22,12 @@ use static_cell::StaticCell;
 use super::LIGHT_USECASES;
 use crate::{
     config::{
+        self,
         BUILD_VERSION,
         DEVICE_MANUFACTURER,
         DEVICE_MODEL,
         TEMPERATURE_MAX_KELVIN,
         TEMPERATURE_MIN_KELVIN,
-        hardware_id,
     },
     domain::dto::LightChangeIntent,
     mk_static,
@@ -53,11 +53,11 @@ fn get_light_state() -> LightState {
     });
 
     if state.power {
-        let mode_id = ModeId::from_raw(state.mode_id).expect("Invalid mode ID");
+        let effect_id = EffectId::from_raw(state.mode_id).unwrap_or(EffectId::Static);
         return LightState::on()
             .with_brightness(state.brightness)
             .with_rgb(state.color.0, state.color.1, state.color.2)
-            .with_effect(mode_id.as_str());
+            .with_effect(effect_id.as_str());
     }
 
     LightState::off()
@@ -84,7 +84,7 @@ fn handle_light_command(cmd: &LightCommand) {
     }
 
     if let Some(effect_str) = cmd.effect {
-        if let Some(id) = ModeId::parse_from_str(effect_str) {
+        if let Some(id) = EffectId::parse_from_str(effect_str) {
             intent = intent.with_effect_id(id as u8);
         }
     }
@@ -98,24 +98,10 @@ fn handle_light_command(cmd: &LightCommand) {
     });
 }
 
-fn format_device_id(hardware_id: u32) -> String<32> {
-    use core::fmt::Write;
-    let mut device_id = String::new();
-    let _ = write!(device_id, "myrtio_light_{:08X}", hardware_id);
-    device_id
-}
-
-fn format_device_name(hardware_id: u32) -> String<64> {
-    use core::fmt::Write;
-    let mut device_name = String::new();
-    let _ = write!(device_name, "MyrtIO Светильник {:08X}", hardware_id);
-    device_name
-}
-
 /// Initialize and return the Home Assistant MQTT module as a trait object.
 pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
-    let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
-    let device_name = mk_static!(String<64>, format_device_name(hardware_id()));
+    let device_id = mk_static!(String<32>, config::device_id());
+    let device_name = mk_static!(String<32>, config::access_point_name());
 
     esp_println::println!(
         "ha: device_id='{}' (len={}), device_name='{}' (len={})",
@@ -141,13 +127,18 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
             .build()
     );
     let supported_effects = mk_static!(
-        [&str; 2],
-        [ModeId::Static.as_str(), ModeId::Rainbow.as_str()]
+        [&str; 4],
+        [
+            EffectId::Static.as_str(),
+            EffectId::RainbowMirrored.as_str(),
+            EffectId::RainbowForward.as_str(),
+            EffectId::RainbowBackward.as_str(),
+        ]
     );
 
     let light_entity = LightEntity::builder()
-        .id("led_strip")
-        .name("LED Strip")
+        .id("light")
+        .name("Свет")
         .device(device)
         .icon(Some("mdi:led-strip"))
         .brightness(true)

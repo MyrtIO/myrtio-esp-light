@@ -6,7 +6,7 @@ use esp_hal::{
     xtensa_lx::interrupt,
 };
 use esp_hal_smartled::{SmartLedsAdapter, buffer_size, smart_led_buffer};
-use myrtio_light_composer::{LedDriver, Rgb};
+use myrtio_light_composer::{OutputDriver, Rgb};
 use smart_leds::SmartLedsWrite;
 use static_cell::make_static;
 
@@ -41,7 +41,7 @@ impl<'a> EspLedDriver<'a> {
     }
 }
 
-impl LedDriver for EspLedDriver<'static> {
+impl OutputDriver for EspLedDriver<'static> {
     fn write(&mut self, colors: &[Rgb]) {
         interrupt::free(|| {
             let _ = self.adapter.write(colors.iter().copied());

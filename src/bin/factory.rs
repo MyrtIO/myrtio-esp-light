@@ -96,7 +96,6 @@ async fn main(spawner: Spawner) -> ! {
         FirmwareUsecases::new(firmware_service)
     );
 
-    // Bind boot button
     adapters::bind_boot_button(
         peripherals.IO_MUX,
         peripherals.GPIO0,
