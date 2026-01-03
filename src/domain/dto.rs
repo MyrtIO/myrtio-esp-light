@@ -29,7 +29,7 @@ impl From<LightChangeIntent> for LightStateIntent {
             brightness: intent.brightness,
             color: intent.color.map(|(r, g, b)| Rgb::new(r, g, b)),
             color_temperature: intent.color_temp,
-            effect_id: intent.effect_id.and_then(|id| EffectId::from_raw(id)),
+            effect_id: intent.effect_id.and_then(EffectId::from_raw),
         }
     }
 }

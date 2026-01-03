@@ -74,7 +74,8 @@ impl HttpFirmwareUpdater for FirmwareService {
                 _part_type, content_length
             );
 
-            let part_capacity = u32::try_from(partition.capacity()).unwrap_or(u32::MAX);
+            let part_capacity =
+                u32::try_from(partition.capacity()).unwrap_or(u32::MAX);
             let erase_size = content_length.saturating_add(ERASE_SECTOR - 1)
                 / ERASE_SECTOR
                 * ERASE_SECTOR;
@@ -172,15 +173,13 @@ impl BootSectorSelector for FirmwareService {
     fn boot_system(&mut self) -> Result<(), FirmwareError> {
         BOOT_TO_SECTOR_CHANNEL
             .try_send(BootSlot::System)
-            .map_err(|_| FirmwareError::AlreadyBooting)?;
-        Ok(())
+            .map_err(|_| FirmwareError::AlreadyBooting)
     }
 
     fn boot_factory(&mut self) -> Result<(), FirmwareError> {
         BOOT_TO_SECTOR_CHANNEL
             .try_send(BootSlot::Factory)
-            .map_err(|_| FirmwareError::AlreadyBooting)?;
-        Ok(())
+            .map_err(|_| FirmwareError::AlreadyBooting)
     }
 }
 

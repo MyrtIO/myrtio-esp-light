@@ -103,7 +103,9 @@ async fn handle_set_light_config(conn: &mut HttpConnection<'_>) -> HttpResult {
     let config_guard = CONFIGURATION_USECASES.lock().await;
     let mut usecases_ref = config_guard.borrow_mut();
     let usecases = usecases_ref.as_mut().unwrap();
-    usecases.set_light_config(&config).map_err(|_| HttpError::NoData)?;
+    usecases
+        .set_light_config(&config)
+        .map_err(|_| HttpError::NoData)?;
     conn.write_headers(&ResponseHeaders::success_no_content())
         .await?;
     Ok(())
@@ -121,13 +123,15 @@ async fn handle_boot(conn: &mut HttpConnection<'_>) -> HttpResult {
 
 async fn handle_ota_update(conn: &mut HttpConnection<'_>) -> HttpResult {
     let guard = super::FIRMWARE_USECASES.lock().await;
-    let usecases_ref = guard.borrow();
-    let usecases = usecases_ref.as_ref().unwrap();
+    let mut usecases_ref = guard.borrow_mut();
+    let usecases = usecases_ref.as_mut().unwrap();
     usecases
         .update_firmware_from_http(conn)
         .await
         .map_err(|_| HttpError::NoData)?;
-    // Note: No response needed - device will reboot after OTA update
+    conn.write_headers(&ResponseHeaders::success_no_content())
+        .await?;
+    usecases.boot_system().unwrap();
     Ok(())
 }
 
