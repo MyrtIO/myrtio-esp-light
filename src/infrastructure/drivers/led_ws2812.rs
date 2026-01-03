@@ -44,7 +44,12 @@ impl<'a> EspLedDriver<'a> {
 impl OutputDriver for EspLedDriver<'static> {
     fn write(&mut self, colors: &[Rgb]) {
         interrupt::free(|| {
-            let _ = self.adapter.write(colors.iter().copied());
+            let grb_colors = colors.iter().map(|c| Rgb {
+                r: c.g,
+                g: c.b,
+                b: c.r,
+            });
+            let _ = self.adapter.write(grb_colors);
         });
     }
 }
