@@ -18,8 +18,11 @@ build-app *ARGS:
         --bin {{APP_MAIN_NAME}} \
         {{ARGS}}
 
-build-ota:
-    just build-app --release
+build-app-log *ARGS:
+    just build-app --features log {{ARGS}}
+
+build-ota *ARGS:
+    just build-app --release {{ARGS}}
     @espflash save-image \
         --chip esp32 \
         --partition-table={{PARTITION_TABLE}} \
@@ -43,6 +46,17 @@ run *ARGS:
         --bin {{APP_FACTORY_NAME}} \
         --release \
         {{ARGS}}
+
+run-app *ARGS:
+    #!/bin/bash
+    source $HOME/export-esp.sh
+    cargo run \
+        --bin {{APP_MAIN_NAME}} \
+        --release \
+        {{ARGS}}
+
+run-app-log *ARGS:
+    just run-app --features log {{ARGS}}
 
 ota: build-ota
     @echo "Sending app..."

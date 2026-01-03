@@ -70,7 +70,7 @@ dotenv-build = "0.1.1"
 chrono = "0.4.31"
 
 [features]
-log = [] # TODO: ["esp-println"]
+log = []
 default = []
 rs1 = []
 curtain = []

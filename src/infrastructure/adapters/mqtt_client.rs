@@ -12,7 +12,7 @@ use myrtio_mqtt::{
 };
 
 use crate::{
-    config::{MqttConfig, hardware_id},
+    config::{self, MqttConfig},
     mk_static,
 };
 
@@ -45,7 +45,7 @@ pub async fn mqtt_client_task(
     println!("mqtt: starting runtime task");
     let mut rx_buffer = [0u8; 1024];
     let mut tx_buffer = [0u8; 1024];
-    let device_id = mk_static!(String<32>, format_device_id(hardware_id()));
+    let device_id = mk_static!(String<32>, config::device_id());
     #[cfg(feature = "log")]
     println!("mqtt: device id: {}", device_id);
     loop {
@@ -64,13 +64,6 @@ pub async fn mqtt_client_task(
             embassy_time::Timer::after(Duration::from_secs(2)).await;
         }
     }
-}
-
-fn format_device_id(hardware_id: u32) -> String<32> {
-    use core::fmt::Write;
-    let mut device_id = String::<32>::new();
-    let _ = write!(device_id, "myrtio-light-{:04X}", hardware_id);
-    device_id
 }
 
 async fn run_mqtt_client(
