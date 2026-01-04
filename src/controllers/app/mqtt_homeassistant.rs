@@ -127,7 +127,7 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
             .build()
     );
     let supported_effects = mk_static!(
-        [&str; 8],
+        [&str; 9],
         [
             EffectId::Static.as_str(),
             EffectId::RainbowMirrored.as_str(),
@@ -137,6 +137,7 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
             EffectId::RainbowShortInverse.as_str(),
             EffectId::Aurora.as_str(),
             EffectId::LavaLamp.as_str(),
+            EffectId::Sunset.as_str(),
         ]
     );
 
