@@ -15,7 +15,6 @@ fn get_commit_hash() -> String {
 
 fn main() {
     linker_be_nice();
-    dotenv_build::output(dotenv_build::Config::default()).unwrap();
     // make sure linkall.x is the last linker script (otherwise might cause problems
     // with flip-link)
     println!("cargo:rustc-link-arg=-Tlinkall.x");

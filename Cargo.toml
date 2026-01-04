@@ -66,7 +66,6 @@ serde-json-core = { version = "0.6.0", features = ["heapless"] }
 smart-leds = "0.4.0"
 
 [build-dependencies]
-dotenv-build = "0.1.1"
 chrono = "0.4.31"
 
 [features]
