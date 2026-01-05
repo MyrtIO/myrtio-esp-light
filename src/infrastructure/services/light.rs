@@ -21,7 +21,14 @@ use myrtio_light_composer::{
 };
 
 use crate::{
-    config::{self, LightConfig, DEFAULT_TRANSITION_TIMINGS, LED_COUNT_MAX},
+    config::{
+        self,
+        DEFAULT_TRANSITION_TIMINGS,
+        LED_COUNT_MAX,
+        LightConfig,
+        unpack_color_correction_rgb24,
+        unpack_color_order,
+    },
     domain::{
         dto::LightChangeIntent as DomainLightChangeIntent,
         entity::{ColorMode, LightState},
@@ -33,7 +40,10 @@ use crate::{
             LightStateReader,
         },
     },
-    infrastructure::{drivers::EspLedDriver, types::LightDriver},
+    infrastructure::{
+        drivers::{self, EspLedDriver},
+        types::LightDriver,
+    },
 };
 
 const LIGHT_INTENT_CHANNEL_SIZE: usize = 10;
@@ -89,7 +99,14 @@ impl LightStateChanger for LightStateService {
 
 impl LightConfigChanger for LightStateService {
     fn set_config(&mut self, config: LightConfig) -> Result<(), LightError> {
-        let correction = color::rgb_from_u32(config.color_correction);
+        // Unpack color order from high byte and set on driver
+        let order = unpack_color_order(config.color_correction);
+        drivers::set_color_order(order);
+
+        // Unpack RGB24 color correction (ignoring high byte)
+        let rgb24 = unpack_color_correction_rgb24(config.color_correction);
+        let correction = color::rgb_from_u32(rgb24);
+
         let bounds = RenderingBounds {
             start: config.skip_leds,
             end: config.skip_leds + config.led_count,
@@ -97,9 +114,10 @@ impl LightConfigChanger for LightStateService {
 
         send_intent_sync(LightChangeIntent::ColorCorrection(correction))?;
         send_intent_sync(LightChangeIntent::Bounds(bounds))?;
-        send_intent_sync(LightChangeIntent::BrightnessRange(
-            BrightnessRange::new(config.brightness_min, config.brightness_max),
-        ))?;
+        send_intent_sync(LightChangeIntent::BrightnessRange(BrightnessRange::new(
+            config.brightness_min,
+            config.brightness_max,
+        )))?;
         Ok(())
     }
 }
@@ -207,8 +225,11 @@ async fn light_engine_task(
     intents: IntentReceiver<'static, LIGHT_INTENT_CHANNEL_SIZE>,
     config: LightEngineConfig,
 ) {
-    let renderer: Renderer<'static, { config::LED_COUNT_MAX }, LIGHT_INTENT_CHANNEL_SIZE> =
-        Renderer::new(intents, &config);
+    let renderer: Renderer<
+        'static,
+        { config::LED_COUNT_MAX },
+        LIGHT_INTENT_CHANNEL_SIZE,
+    > = Renderer::new(intents, &config);
 
     let mut scheduler = FrameScheduler::new(renderer, driver);
 

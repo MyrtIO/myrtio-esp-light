@@ -53,7 +53,8 @@ fn get_light_state() -> LightState {
     });
 
     if state.power {
-        let effect_id = EffectId::from_raw(state.mode_id).unwrap_or(EffectId::Static);
+        let effect_id =
+            EffectId::from_raw(state.mode_id).unwrap_or(EffectId::Static);
         return LightState::on()
             .with_brightness(state.brightness)
             .with_rgb(state.color.0, state.color.1, state.color.2)
@@ -130,14 +131,14 @@ pub(super) fn init_mqtt_homeassistant_module() -> &'static mut dyn MqttModule {
         [&str; 9],
         [
             EffectId::Static.as_str(),
-            EffectId::RainbowMirrored.as_str(),
+            EffectId::Fantasy.as_str(),
+            EffectId::Garland.as_str(),
+            EffectId::Neon.as_str(),
+            EffectId::Rest.as_str(),
+            EffectId::Sunset.as_str(),
             EffectId::RainbowLong.as_str(),
             EffectId::RainbowShort.as_str(),
             EffectId::RainbowLongInverse.as_str(),
-            EffectId::RainbowShortInverse.as_str(),
-            EffectId::Aurora.as_str(),
-            EffectId::LavaLamp.as_str(),
-            EffectId::Sunset.as_str(),
         ]
     );
 

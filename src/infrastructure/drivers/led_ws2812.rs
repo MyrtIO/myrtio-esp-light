@@ -1,3 +1,5 @@
+use core::sync::atomic::{AtomicU8, Ordering};
+
 use esp_hal::{
     gpio::interconnect::PeripheralOutput,
     peripherals::RMT,
@@ -10,7 +12,23 @@ use myrtio_light_composer::{OutputDriver, Rgb};
 use smart_leds::SmartLedsWrite;
 use static_cell::make_static;
 
+use crate::config::ColorOrder;
+
 pub(crate) const MAX_LED_COUNT: usize = 128;
+
+/// Global color order setting (atomic for lock-free access).
+/// Default is GRB (1).
+static COLOR_ORDER: AtomicU8 = AtomicU8::new(1);
+
+/// Set the global color order for LED output.
+pub fn set_color_order(order: ColorOrder) {
+    COLOR_ORDER.store(order.as_u8(), Ordering::Relaxed);
+}
+
+/// Get the current global color order.
+fn get_color_order() -> ColorOrder {
+    ColorOrder::from_u8(COLOR_ORDER.load(Ordering::Relaxed))
+}
 
 /// ESP-specific LED driver using RMT peripheral
 ///
@@ -43,13 +61,13 @@ impl<'a> EspLedDriver<'a> {
 
 impl OutputDriver for EspLedDriver<'static> {
     fn write(&mut self, colors: &[Rgb]) {
+        let order = get_color_order();
         interrupt::free(|| {
-            let grb_colors = colors.iter().map(|c| Rgb {
-                r: c.g,
-                g: c.b,
-                b: c.r,
+            let reordered_colors = colors.iter().map(|c| {
+                let (r, g, b) = order.reorder(c.r, c.g, c.b);
+                Rgb { r, g, b }
             });
-            let _ = self.adapter.write(grb_colors);
+            let _ = self.adapter.write(reordered_colors);
         });
     }
 }

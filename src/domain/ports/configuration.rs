@@ -1,6 +1,5 @@
-use crate::config::{DeviceConfig, LightConfig};
-
 use super::light::LightError;
+use crate::config::{DeviceConfig, LightConfig};
 
 #[derive(Debug)]
 pub enum ConfigurationError {

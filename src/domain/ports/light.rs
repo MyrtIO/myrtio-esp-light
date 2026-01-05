@@ -35,11 +35,7 @@ pub trait LightConfigChanger {
 
 /// Trait for the light usecases state handler
 pub trait LightStateHandler:
-    LightStateReader
-    + LightConfigChanger
-    + LightStateChanger
-    + Sync
-    + Send
+    LightStateReader + LightConfigChanger + LightStateChanger + Sync + Send
 {
 }
 

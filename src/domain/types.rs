@@ -1,4 +1,8 @@
-use super::ports::{ConfigurationUsecasesPort, FirmwareUsecasesPort, LightUsecasesPort};
+use super::ports::{
+    ConfigurationUsecasesPort,
+    FirmwareUsecasesPort,
+    LightUsecasesPort,
+};
 
 // Type alias for the light usecases port reference
 pub type LightUsecasesPortRef = &'static mut dyn LightUsecasesPort;

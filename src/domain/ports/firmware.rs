@@ -51,6 +51,9 @@ pub trait BootSectorSelector {
     fn boot_factory(&mut self) -> Result<(), FirmwareError>;
 }
 
-pub trait FirmwareHandler: BootSectorSelector + HttpFirmwareUpdater + Sync + Send {}
+pub trait FirmwareHandler:
+    BootSectorSelector + HttpFirmwareUpdater + Sync + Send
+{
+}
 
 pub trait FirmwareUsecasesPort: FirmwareHandler {}

@@ -11,6 +11,21 @@
   --success-color: #34c759;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #1D1D1D;
+    --bg-color-transparent: #1D1D1D00;
+    --card-bg: #2d2d2e;
+    --text-primary: #f5f5f7;
+    --text-secondary: #98989d;
+    --accent-color: #0a84ff;
+    --danger-color: #ff453a;
+    --border-color: #38383a;
+    --border-color-transparent: rgba(255, 255, 255, 0.1);
+    --success-color: #30d158;
+  }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -204,7 +219,7 @@ input[type="color"] {
   right: 20px;
   padding: 12px 20px;
   border-radius: 10px;
-  background: white;
+  background: var(--card-bg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   display: none;
   align-items: center;
@@ -335,7 +350,7 @@ input[type="color"] {
   }
 
   &._danger {
-    background: white;
+    background: var(--card-bg);
     color: var(--danger-color);
   }
 

@@ -1,3 +1,5 @@
+import type { ColorOrder } from "../models";
+
 export interface WifiConfiguration {
   ssid: string;
   password: string;
@@ -16,6 +18,7 @@ export interface LightConfiguration {
   led_count: number;
   skip_leds: number;
   color_correction: number;
+  color_order: ColorOrder;
 }
 
 export interface Configuration {
@@ -24,9 +27,9 @@ export interface Configuration {
   light: LightConfiguration;
 }
 
-/** Recursively maps all primitive fields to HTMLInputElement */
+/** Recursively maps all primitive fields to HTMLInputElement or HTMLSelectElement */
 type ToInputs<T> = {
-  [K in keyof T]: T[K] extends object ? ToInputs<T[K]> : HTMLInputElement;
+  [K in keyof T]: T[K] extends object ? ToInputs<T[K]> : HTMLInputElement | HTMLSelectElement;
 };
 
 export interface ConfigurationBlockOptions {
@@ -83,6 +86,7 @@ export class ConfigurationBlock {
         led_count: $light("led_count"),
         skip_leds: $light("skip_leds"),
         color_correction: $light("color_correction"),
+        color_order: $light("color_order"),
       },
     };
 
@@ -124,6 +128,7 @@ export class ConfigurationBlock {
       led_count: parseInt(this.inputs.light.led_count.value) || 0,
       skip_leds: parseInt(this.inputs.light.skip_leds.value) || 0,
       color_correction: parseInt(hex, 16) || 0xFFFFFF,
+      color_order: this.inputs.light.color_order.value as ColorOrder,
     };
   }
 
@@ -170,9 +175,9 @@ export class ConfigurationBlock {
 function recursiveGetValues<T extends object>(inputs: ToInputs<T>): T {
   const values: T = {} as T;
   for (const [key, inputOrObject] of Object.entries(inputs)) {
-    if (inputOrObject instanceof HTMLInputElement) {
-      const input = inputOrObject as HTMLInputElement;
-      if (input.type === "number") {
+    if (inputOrObject instanceof HTMLInputElement || inputOrObject instanceof HTMLSelectElement) {
+      const input = inputOrObject as HTMLInputElement | HTMLSelectElement;
+      if (input instanceof HTMLInputElement && input.type === "number") {
         values[key as keyof T] = parseInt(input.value) as T[keyof T];
       } else {
         values[key as keyof T] = input.value as T[keyof T];
@@ -192,7 +197,7 @@ function recursiveSetValues<T extends object>(inputs: ToInputs<T>, values: T) {
       recursiveSetValues(inputs[key as keyof T], valueOrObject as object);
       continue;
     }
-    const input = inputs[key as keyof T] as HTMLInputElement;
-    input.value = valueOrObject as string;
+    const input = inputs[key as keyof T] as HTMLInputElement | HTMLSelectElement;
+    input.value = String(valueOrObject);
   }
 }

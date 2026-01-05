@@ -17,12 +17,24 @@ export interface MqttConfiguration {
   password: string;
 }
 
+/** LED color channel order */
+export type ColorOrder = "rgb" | "grb" | "brg" | "rbg" | "gbr" | "bgr";
+
 export interface LightConfiguration {
   brightness_min: number;
   brightness_max: number;
   led_count: number;
   skip_leds: number;
   color_correction: number;
+  color_order: ColorOrder;
+}
+
+/** Request to test LED color output */
+export interface LightTestRequest {
+  r: number;
+  g: number;
+  b: number;
+  brightness: number;
 }
 
 export interface Configuration {

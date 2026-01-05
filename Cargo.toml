@@ -17,7 +17,7 @@ path = "src/bin/factory.rs"
 [dependencies]
 myrtio-light-factory-page = { path = "factory-page" }
 
-myrtio-light-composer = "0.6.6"
+myrtio-light-composer = { path = "../light-composer" }
 myrtio-mqtt = "0.1.2"
 myrtio-mqtt-homeassistant = "0.1.2"
 

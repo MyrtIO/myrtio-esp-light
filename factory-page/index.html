@@ -82,7 +82,8 @@
                         <div class="label">Цветокоррекция</div>
                         <div class="value">
                             <input type="color" id="color_correction_picker">
-                            <input type="text" name="color_correction" class="color-hex" placeholder="#FFFFFF" maxlength="7">
+                            <input type="text" name="color_correction" class="color-hex" placeholder="#FFFFFF"
+                                maxlength="7">
                         </div>
                     </div>
                     <div class="row">
@@ -93,6 +94,34 @@
                                     min="0" max="255">
                                 до <input type="number" id="brightness_max" name="brightness_max" placeholder="255"
                                     min="0" max="255">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Порядок цветов</div>
+                        <div class="value">
+                            <select name="color_order">
+                                <option value="rgb">RGB</option>
+                                <option value="grb" selected>GRB</option>
+                                <option value="brg">BRG</option>
+                                <option value="rbg">RBG</option>
+                                <option value="gbr">GBR</option>
+                                <option value="bgr">BGR</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Проверка цвета</div>
+                        <div class="value">
+                            <div class="test-buttons">
+                                <button type="button" id="test-red" class="btn _small"
+                                    style="background: #ff4444; color: white;">R</button>
+                                <button type="button" id="test-green" class="btn _small"
+                                    style="background: #44ff44; color: black;">G</button>
+                                <button type="button" id="test-blue" class="btn _small"
+                                    style="background: #4444ff; color: white;">B</button>
+                                <button type="button" id="test-white" class="btn _small"
+                                    style="background: #ffffff; color: black;">W</button>
                             </div>
                         </div>
                     </div>

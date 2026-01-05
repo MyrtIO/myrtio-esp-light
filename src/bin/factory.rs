@@ -116,7 +116,8 @@ async fn main(spawner: Spawner) -> ! {
 
     let handler = mk_static!(
         FactoryHttpController,
-        init_factory_controllers(configuration, firmware_usecases).await
+        init_factory_controllers(configuration, firmware_usecases, light_service)
+            .await
     );
 
     println!("Factory firmware ready!");

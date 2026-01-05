@@ -26,7 +26,7 @@ const BODY_RX_CHUNK_SIZE: usize = 256;
 const STREAM_CHUNK_SIZE: usize = 1024;
 
 /// A trait for reading chunks from a connection.
-pub trait AsyncChunkedReader {
+pub(crate) trait AsyncChunkedReader {
     fn content_length(&self) -> u32;
     fn read_and_then(
         &mut self,
@@ -74,6 +74,12 @@ impl<'a> HttpConnection<'a> {
             parse_request_line(header_str).ok_or(Error::Parse)?;
         let content_length = find_content_length(rest_headers).unwrap_or(0);
 
+        #[cfg(feature = "log")]
+        println!(
+            "http: connection from socket: method={:?}, path={:?}, content_length={}",
+            method, raw_path, content_length
+        );
+
         let mut path = String::new();
         let _ = path.push_str(raw_path);
         Ok(Self {
@@ -100,6 +106,8 @@ impl<'a> HttpConnection<'a> {
 
     /// Write the body to the connection
     pub(crate) async fn write_body(&mut self, body: &[u8]) -> HttpResult {
+        #[cfg(feature = "log")]
+        println!("http: writing body: length={}", body.len());
         for chunk in body.chunks(STREAM_CHUNK_SIZE) {
             self.write_all(chunk).await?;
         }
@@ -113,6 +121,8 @@ impl<'a> HttpConnection<'a> {
         for _ in 0..self.body_buf.capacity() {
             self.body_buf.push(0).unwrap();
         }
+        #[cfg(feature = "log")]
+        println!("http: writing JSON: length={}", self.body_buf.len());
         let n = serde_json_core::to_slice(data, self.body_buf.as_mut_slice())
             .map_err(|_| Error::Closed)?;
         self.body_buf.truncate(n);
@@ -120,8 +130,12 @@ impl<'a> HttpConnection<'a> {
             .with_content(ContentHeaders::new(ContentType::Json).with_length(n));
 
         self.write_headers(&headers).await?;
+        #[cfg(feature = "log")]
+        println!("http: writing headers: length={}", self.header_buf.len());
 
         self.write_body_buf().await?;
+        #[cfg(feature = "log")]
+        println!("http: writing body buffer: length={}", self.body_buf.len());
         Ok(())
     }
 

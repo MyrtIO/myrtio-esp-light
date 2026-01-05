@@ -7,12 +7,11 @@ pub(crate) use headers::{
     ContentEncoding,
     ContentHeaders,
     ContentType,
+    HttpMethod,
     ResponseHeaders,
     TextEncoding,
 };
-pub(crate) use headers::HttpMethod;
-pub(crate) use server::HttpHandler;
-pub(crate) use server::HttpServer;
+pub(crate) use server::{HttpHandler, HttpServer};
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,4 +35,4 @@ impl From<embassy_net::tcp::Error> for Error {
     }
 }
 
-pub type HttpResult = Result<(), Error>;
+pub(crate) type HttpResult = Result<(), Error>;

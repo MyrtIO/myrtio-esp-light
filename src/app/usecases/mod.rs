@@ -1,7 +1,7 @@
-mod light;
 mod configuration;
 mod firmware;
+mod light;
 
-pub use light::LightUsecases;
 pub use configuration::ConfigurationUsecases;
 pub use firmware::FirmwareUsecases;
+pub use light::LightUsecases;

@@ -1,4 +1,4 @@
-import type { Configuration, LightConfiguration, SystemInformation } from "../models";
+import type { Configuration, LightConfiguration, LightTestRequest, SystemInformation } from "../models";
 import type { ApiService, ProgressCallback } from "./interface";
 
 export class MockApiService implements ApiService {
@@ -22,6 +22,7 @@ export class MockApiService implements ApiService {
         led_count: 26,
         skip_leds: 0,
         color_correction: 0xf7e4ff,
+        color_order: "grb",
       },
     };
   }
@@ -36,6 +37,12 @@ export class MockApiService implements ApiService {
 
   async setLightConfiguration(light: LightConfiguration): Promise<void> {
     console.log(`[mock] setting light configuration`, { light });
+    await simulateNetworkDelay();
+    return;
+  }
+
+  async testColor(request: LightTestRequest): Promise<void> {
+    console.log(`[mock] testing color`, { request });
     await simulateNetworkDelay();
     return;
   }

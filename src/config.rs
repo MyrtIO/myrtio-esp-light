@@ -91,9 +91,82 @@ impl Default for LightConfig {
             brightness_max: 255,
             led_count: 20,
             skip_leds: 0,
-            color_correction: 0xFF_FFFF,
+            // Default: GRB order (0x01) in high byte, white color correction
+            color_correction: pack_color_correction(ColorOrder::Grb, 0xFF_FFFF),
         }
     }
+}
+
+/// LED color channel order.
+///
+/// Different WS2812-compatible LED strips use different channel orderings.
+/// This enum represents all 6 permutations of RGB.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[repr(u8)]
+pub enum ColorOrder {
+    Rgb = 0,
+    #[default]
+    Grb = 1,
+    Brg = 2,
+    Rbg = 3,
+    Gbr = 4,
+    Bgr = 5,
+}
+
+impl ColorOrder {
+    /// Convert from raw u8 value, returning default (GRB) for invalid values.
+    pub const fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Rgb,
+            1 => Self::Grb,
+            2 => Self::Brg,
+            3 => Self::Rbg,
+            4 => Self::Gbr,
+            5 => Self::Bgr,
+            _ => Self::Grb, // Default to GRB for invalid values
+        }
+    }
+
+    /// Convert to raw u8 value.
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    /// Reorder RGB components according to this color order.
+    ///
+    /// Takes (r, g, b) and returns them reordered for the LED strip.
+    #[inline]
+    pub const fn reorder(self, r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+        match self {
+            Self::Rgb => (r, g, b),
+            Self::Grb => (g, r, b),
+            Self::Brg => (b, r, g),
+            Self::Rbg => (r, b, g),
+            Self::Gbr => (g, b, r),
+            Self::Bgr => (b, g, r),
+        }
+    }
+}
+
+/// Pack color order and RGB24 color correction into a single `u32`.
+///
+/// Format: `(order_id << 24) | (rgb24 & 0x00FF_FFFF)`
+///
+/// This allows storing the color order in the high byte of the existing
+/// `color_correction` field without changing the on-flash layout.
+pub const fn pack_color_correction(order: ColorOrder, rgb24: u32) -> u32 {
+    ((order.as_u8() as u32) << 24) | (rgb24 & 0x00FF_FFFF)
+}
+
+/// Unpack color order from packed `color_correction` value.
+pub const fn unpack_color_order(packed: u32) -> ColorOrder {
+    ColorOrder::from_u8((packed >> 24) as u8)
+}
+
+/// Unpack RGB24 color correction from packed `color_correction` value.
+pub const fn unpack_color_correction_rgb24(packed: u32) -> u32 {
+    packed & 0x00FF_FFFF
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
