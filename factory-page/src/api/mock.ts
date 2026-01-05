@@ -1,4 +1,9 @@
-import type { Configuration, LightConfiguration, LightTestRequest, SystemInformation } from "../models";
+import type {
+  Configuration,
+  LightConfiguration,
+  LightTestRequest,
+  SystemInformation,
+} from "../models";
 import type { ApiService, ProgressCallback } from "./interface";
 
 export class MockApiService implements ApiService {

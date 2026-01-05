@@ -4,6 +4,7 @@ import { ConfigurationBlock } from "./blocks/configuration";
 import { HeaderBlock } from "./blocks/header";
 import { SystemBlock } from "./blocks/system";
 import "./style.scss";
+import { sleep } from "./utils/sleep";
 
 async function main() {
   const configForm = document.querySelector<HTMLFormElement>("#configForm");
@@ -102,10 +103,9 @@ async function main() {
   }
 
   // Load initial state
-  const [configuration, system] = await Promise.all([
-    api.getConfiguration(),
-    api.getSystemInformation(),
-  ]);
+  await sleep(100);
+  const configuration = await api.getConfiguration();
+  const system = await api.getSystemInformation();
 
   configurationForm.setValues(configuration);
   systemForm.setValues(system);

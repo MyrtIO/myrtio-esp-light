@@ -29,7 +29,9 @@ export interface Configuration {
 
 /** Recursively maps all primitive fields to HTMLInputElement or HTMLSelectElement */
 type ToInputs<T> = {
-  [K in keyof T]: T[K] extends object ? ToInputs<T[K]> : HTMLInputElement | HTMLSelectElement;
+  [K in keyof T]: T[K] extends object
+    ? ToInputs<T[K]>
+    : HTMLInputElement | HTMLSelectElement;
 };
 
 export interface ConfigurationBlockOptions {
@@ -91,7 +93,9 @@ export class ConfigurationBlock {
     };
 
     // Setup color picker sync
-    this.colorPicker = document.getElementById("color_correction_picker") as HTMLInputElement;
+    this.colorPicker = document.getElementById(
+      "color_correction_picker"
+    ) as HTMLInputElement;
     const hexInput = this.inputs.light.color_correction;
 
     // Use "change" event so auto-send only fires on commit, not while dragging
@@ -127,7 +131,7 @@ export class ConfigurationBlock {
       brightness_max: parseInt(this.inputs.light.brightness_max.value) || 255,
       led_count: parseInt(this.inputs.light.led_count.value) || 0,
       skip_leds: parseInt(this.inputs.light.skip_leds.value) || 0,
-      color_correction: parseInt(hex, 16) || 0xFFFFFF,
+      color_correction: parseInt(hex, 16) || 0xffffff,
       color_order: this.inputs.light.color_order.value as ColorOrder,
     };
   }
@@ -146,11 +150,19 @@ export class ConfigurationBlock {
 
   public setValues(configuration: Configuration) {
     // Format color_correction as #RRGGBB before recursive set
-    const hex = "#" + configuration.light.color_correction.toString(16).toUpperCase().padStart(6, "0");
+    const hex =
+      "#" +
+      configuration.light.color_correction
+        .toString(16)
+        .toUpperCase()
+        .padStart(6, "0");
     this.colorPicker.value = hex;
     recursiveSetValues(this.inputs, {
       ...configuration,
-      light: { ...configuration.light, color_correction: hex as unknown as number },
+      light: {
+        ...configuration.light,
+        color_correction: hex as unknown as number,
+      },
     });
   }
 
@@ -166,8 +178,11 @@ export class ConfigurationBlock {
   public getValues(): Configuration {
     const values = recursiveGetValues(this.inputs);
     // Parse #RRGGBB back to u32
-    const hex = (values.light.color_correction as unknown as string).replace("#", "");
-    values.light.color_correction = parseInt(hex, 16) || 0xFFFFFF;
+    const hex = (values.light.color_correction as unknown as string).replace(
+      "#",
+      ""
+    );
+    values.light.color_correction = parseInt(hex, 16) || 0xffffff;
     return values;
   }
 }
@@ -175,7 +190,10 @@ export class ConfigurationBlock {
 function recursiveGetValues<T extends object>(inputs: ToInputs<T>): T {
   const values: T = {} as T;
   for (const [key, inputOrObject] of Object.entries(inputs)) {
-    if (inputOrObject instanceof HTMLInputElement || inputOrObject instanceof HTMLSelectElement) {
+    if (
+      inputOrObject instanceof HTMLInputElement ||
+      inputOrObject instanceof HTMLSelectElement
+    ) {
       const input = inputOrObject as HTMLInputElement | HTMLSelectElement;
       if (input instanceof HTMLInputElement && input.type === "number") {
         values[key as keyof T] = parseInt(input.value) as T[keyof T];
@@ -197,7 +215,9 @@ function recursiveSetValues<T extends object>(inputs: ToInputs<T>, values: T) {
       recursiveSetValues(inputs[key as keyof T], valueOrObject as object);
       continue;
     }
-    const input = inputs[key as keyof T] as HTMLInputElement | HTMLSelectElement;
+    const input = inputs[key as keyof T] as
+      | HTMLInputElement
+      | HTMLSelectElement;
     input.value = String(valueOrObject);
   }
 }
