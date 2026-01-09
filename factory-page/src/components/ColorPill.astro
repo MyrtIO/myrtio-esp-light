@@ -1,0 +1,46 @@
+---
+interface Props {
+  id: string;
+  label: string;
+  color: string;
+}
+
+const { id, label, color } = Astro.props;
+---
+
+<button type="button" class="colorPill" id={id} data-color-pill>
+  <div class="colorPill-dot" style={`background: ${color}`}></div>
+  {label}
+</button>
+
+<style lang="scss">
+  .colorPill {
+    height: 36px;
+    padding: 0 var(--space-l);
+    border-radius: 18px;
+    border: 1px solid transparent;
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-s);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    transition: all 0.2s;
+
+    &:hover {
+      background: var(--color-bg-inputHover);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  }
+</style>

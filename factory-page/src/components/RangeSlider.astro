@@ -1,0 +1,196 @@
+---
+interface Props {
+  label: string;
+  nameMin: string;
+  nameMax: string;
+  min?: number;
+  max?: number;
+  valueMin?: number;
+  valueMax?: number;
+}
+
+const {
+  label,
+  nameMin,
+  nameMax,
+  min = 0,
+  max = 255,
+  valueMin = 0,
+  valueMax = 255,
+} = Astro.props;
+
+const percentMin = (valueMin / 255) * 100;
+const percentMax = (valueMax / 255) * 100;
+---
+
+<div class="rangeSlider">
+  <div class="rangeSlider-header">
+    <span class="rangeSlider-label">{label}</span>
+    <span class="rangeSlider-values">
+      от <span data-range-val-min>{percentMin.toFixed(1)}</span> до <span
+        data-range-val-max>{percentMax.toFixed(1)}%</span
+      >
+    </span>
+  </div>
+
+  <div class="rangeSlider-rail">
+    <div
+      class="rangeSlider-fill"
+      style={{
+        left: `${percentMin}%`,
+        width: `calc(${percentMax - percentMin}% - 5px)`,
+      }}
+      data-range-fill
+    >
+    </div>
+    <input
+      type="range"
+      name={nameMin}
+      min={min}
+      max={max}
+      value={valueMin}
+      data-field={nameMin}
+      data-range-min
+    />
+    <input
+      type="range"
+      name={nameMax}
+      min={min}
+      max={max}
+      value={valueMax}
+      data-field={nameMax}
+      data-range-max
+    />
+  </div>
+</div>
+
+<script>
+  const rangeSlider = document.querySelectorAll(".rangeSlider");
+
+  const $ = <T extends HTMLElement>(selector: string) => {
+    const element = document.querySelector<T>(selector);
+    if (!element) {
+      throw new Error(
+        `Element with selector "${selector}" not found in RangeSlider`
+      );
+    }
+    return element;
+  };
+
+  rangeSlider.forEach((slider) => {
+    const rangeMinInput = $<HTMLInputElement>("[data-range-min]");
+    const rangeMaxInput = $<HTMLInputElement>("[data-range-max]");
+    const rangeFill = $("[data-range-fill]");
+    const rangeValMin = $("[data-range-val-min]");
+    const rangeValMax = $("[data-range-val-max]");
+
+    const rangeMax = parseInt(rangeMaxInput.max, 10);
+
+    const handleRangeChange = () => {
+      const min = parseInt(rangeMinInput.value, 10);
+      const max = parseInt(rangeMaxInput.value, 10);
+      if (min > max) {
+        rangeMinInput.value = rangeMaxInput.value;
+      }
+
+      const percentMin = (min / rangeMax) * 100;
+      const percentMax = (max / rangeMax) * 100;
+
+      rangeFill.style.left = percentMin + "%";
+      rangeFill.style.width = `calc(${percentMax - percentMin}% - 5px)`;
+
+      rangeValMin.textContent = percentMin.toFixed(1);
+      rangeValMax.textContent = percentMax.toFixed(1) + "%";
+    };
+
+    [rangeMinInput, rangeMaxInput].forEach((input) => {
+      input.addEventListener("input", handleRangeChange);
+      input.addEventListener("change", () => {
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    });
+  });
+</script>
+
+<style>
+  .rangeSlider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-m);
+  }
+
+  .rangeSlider-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .rangeSlider-values {
+    font-family: monospace;
+    font-size: var(--font-size-m);
+    color: var(--color-accent);
+  }
+
+  .rangeSlider-rail {
+    position: relative;
+    height: 6px;
+    background: var(--color-bg-input);
+    border-radius: 3px;
+    margin: 14px 0;
+  }
+
+  .rangeSlider-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--color-accent);
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  .rangeSlider input[type="range"] {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 40px;
+    -webkit-appearance: none;
+    background: transparent;
+    pointer-events: none;
+    z-index: 2;
+    margin: 0;
+  }
+
+  .rangeSlider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    cursor: grab;
+    transition: transform 0.1s;
+    margin-top: 0;
+  }
+
+  .rangeSlider input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(0.95);
+  }
+
+  .rangeSlider input[type="range"]::-moz-range-thumb {
+    pointer-events: auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    cursor: grab;
+    border: none;
+  }
+</style>

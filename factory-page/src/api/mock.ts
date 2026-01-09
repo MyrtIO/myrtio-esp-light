@@ -3,8 +3,9 @@ import type {
   LightConfiguration,
   LightTestRequest,
   SystemInformation,
-} from "../models";
+} from "../model/types";
 import type { ApiService, ProgressCallback } from "./interface";
+import { sleep } from "../utils/sleep";
 
 export class MockApiService implements ApiService {
   async getConfiguration(): Promise<Configuration> {
@@ -22,34 +23,29 @@ export class MockApiService implements ApiService {
         password: "myrtio",
       },
       light: {
-        brightness_min: 0,
+        brightness_min: 10,
         brightness_max: 255,
-        led_count: 26,
+        led_count: 60,
         skip_leds: 0,
-        color_correction: 0xf7e4ff,
+        color_correction: 0xffb0a0,
         color_order: "grb",
       },
     };
   }
 
   async saveConfiguration(configuration: Configuration): Promise<void> {
-    console.log(`[mock] saving configuration`, {
-      configuration,
-    });
+    console.log(`[mock] saving configuration`, { configuration });
     await simulateNetworkDelay();
-    return;
   }
 
   async setLightConfiguration(light: LightConfiguration): Promise<void> {
     console.log(`[mock] setting light configuration`, { light });
     await simulateNetworkDelay();
-    return;
   }
 
   async testColor(request: LightTestRequest): Promise<void> {
     console.log(`[mock] testing color`, { request });
     await simulateNetworkDelay();
-    return;
   }
 
   async getSystemInformation(): Promise<SystemInformation> {
@@ -66,29 +62,24 @@ export class MockApiService implements ApiService {
     onProgress: ProgressCallback
   ): Promise<void> {
     console.log(`[mock] updating firmware from ${file.name}`);
-    const totalTime = 10000;
+    const totalTime = 5000;
     const stepTime = totalTime / 10;
     for (let i = 0; i <= 100; i += 10) {
       await sleep(stepTime);
       onProgress(i);
     }
-    return;
   }
 
   async bootSystem(): Promise<void> {
     console.log(`[mock] booting system`);
     await simulateNetworkDelay();
-    return;
   }
 }
 
 function simulateNetworkDelay(
-  min: number = 500,
-  delta: number = 1000
+  min: number = 50,
+  delta: number = 200
 ): Promise<void> {
-  let delay = Math.random() * delta + min;
+  const delay = Math.random() * delta + min;
   return sleep(delay);
 }
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));

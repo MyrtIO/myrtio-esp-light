@@ -1,8 +1,0 @@
-[package]
-name = "myrtio-light-factory-page"
-version = "0.0.0"
-publish = false
-license = "MIT"
-edition = "2024"
-rust-version = "1.90"
-

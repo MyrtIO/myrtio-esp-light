@@ -1,0 +1,53 @@
+---
+import "../style.css";
+import SystemBlock from "../blocks/System.astro";
+import ConnectionBlock from "../blocks/Connection.astro";
+import LightBlock from "../blocks/Light.astro";
+import Header from "../components/Header.astro";
+import SaveBar from "../components/SaveBar.astro";
+---
+
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <title>MyrtIO Светильник</title>
+  </head>
+  <body>
+    <Header />
+    <div class="appShell">
+      <ConnectionBlock />
+      <LightBlock />
+      <SystemBlock />
+    </div>
+    <SaveBar />
+
+    <script>
+      import { initApp } from "../client/main";
+      import { initializeStores } from "../model/store";
+      import { createApiService } from "../api";
+
+      const api = createApiService("/api");
+
+      initializeStores(api);
+    //   initApp();
+    </script>
+  </body>
+</html>
+
+<style>
+  .appShell {
+    max-width: 500px;
+    margin: 0 auto;
+    padding-bottom: 100px;
+    position: relative;
+  }
+
+  @media (min-width: 800px) {
+    .appShell {
+      margin-top: 60px;
+    }
+  }
+</style>

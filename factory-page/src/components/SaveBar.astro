@@ -1,0 +1,63 @@
+---
+
+---
+
+<div class="saveBar" id="save-bar">
+  <button type="button" class="saveBar-button" id="btn-save">Сохранить</button>
+</div>
+
+<style>
+  .saveBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--space-xl);
+    background: linear-gradient(to top, var(--color-bg-body) 90%, transparent);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  .saveBar._visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .saveBar-button {
+    pointer-events: auto;
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    font-size: var(--font-size-l);
+    font-weight: 700;
+    padding: var(--space-l) 48px;
+    border-radius: var(--radius-full);
+    box-shadow: 0 8px 30px var(--color-accent-glow);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    width: 100%;
+    max-width: 360px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .saveBar-button:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px var(--color-accent-glow);
+  }
+
+  .saveBar-button:active {
+    transform: scale(0.96);
+  }
+
+  .saveBar-button._success {
+    background: var(--color-success);
+    box-shadow: none;
+  }
+</style>

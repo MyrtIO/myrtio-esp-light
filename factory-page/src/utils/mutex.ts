@@ -12,7 +12,7 @@ export class Mutex {
 
   /**
    * Lock the mutex and return a function to unlock it.
-   * 
+   *
    * The caller is responsible for calling the unlock function to release the mutex.
    * If the unlock function is not called, the mutex will be locked indefinitely.
    * @returns A promise that resolves to the unlock function.

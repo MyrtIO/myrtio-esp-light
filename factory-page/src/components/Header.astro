@@ -1,0 +1,87 @@
+---
+
+---
+
+<div class="header" id="header">
+  <div class="header-brand">
+    <h1>MyrtIO</h1>
+    <span>ESP Light</span>
+  </div>
+  <div class="header-status">
+    <div class="header-loader" id="header-loader"></div>
+  </div>
+</div>
+
+<style>
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+  }
+
+  .header-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px var(--space-m);
+    min-width: 44px;
+    min-height: 32px;
+    justify-content: center;
+  }
+
+  .header-brand h1 {
+    font-size: var(--font-size-xxxl);
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin: 0;
+  }
+
+  .header-brand span {
+    color: var(--color-accent);
+    display: block;
+    font-size: 0.7em;
+    letter-spacing: 0.2px;
+    opacity: 0.9;
+  }
+
+  .header-loader {
+    --loader-size: 20px;
+    width: var(--loader-size);
+    height: var(--loader-size);
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .header-loader._visible {
+    opacity: 1;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (min-width: 800px) {
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 40px 60px;
+      margin-bottom: 0;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .header > :global(*) {
+      pointer-events: auto;
+    }
+  }
+</style>

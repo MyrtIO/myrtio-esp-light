@@ -1,0 +1,73 @@
+---
+import FieldGroup from "../components/FieldGroup.astro";
+import Input from "../components/Input.astro";
+import Typography from "../components/Typography.astro";
+---
+
+<div id="connection-form">
+  <Typography variant="headingL" as="h2">Подключение</Typography>
+
+  <FieldGroup title="Wi-Fi сеть">
+    <Input name="wifi_ssid" type="text" placeholder="SSID" />
+    <Input name="wifi_password" type="password" placeholder="Пароль" />
+  </FieldGroup>
+
+  <FieldGroup title="MQTT брокер">
+    <Input name="mqtt_host" type="text" placeholder="Хост" />
+    <Input name="mqtt_port" type="number" placeholder="Порт" />
+    <Input name="mqtt_username" type="text" placeholder="Пользователь" />
+    <Input name="mqtt_password" type="password" placeholder="Пароль" />
+  </FieldGroup>
+</div>
+
+<script>
+  import { $wifiConfiguration, $mqttConfiguration } from "../model/store";
+  import { createElementSeeker } from "../utils/dom";
+
+  const form = document.getElementById("connection-form") as HTMLFormElement;
+  if (!form) {
+    throw new Error("Connection form not found");
+  }
+
+  const $ = createElementSeeker(form);
+
+  const wifiSsidInput = $("wifi_ssid");
+  const wifiPasswordInput = $("wifi_password");
+
+  const mqttHostInput = $("mqtt_host");
+  const mqttPortInput = $("mqtt_port");
+  const mqttUsernameInput = $("mqtt_username");
+  const mqttPasswordInput = $("mqtt_password");
+
+  [wifiSsidInput, wifiPasswordInput].forEach((input) => {
+    input.addEventListener("keyup", () =>
+      $wifiConfiguration.set({
+        ssid: wifiSsidInput.value,
+        password: wifiPasswordInput.value,
+      })
+    );
+  });
+  $wifiConfiguration.subscribe((wifi) => {
+    wifiSsidInput.value = wifi.ssid;
+    wifiPasswordInput.value = wifi.password;
+  });
+
+  [mqttHostInput, mqttPortInput, mqttUsernameInput, mqttPasswordInput].forEach(
+    (input) => {
+      input.addEventListener("keyup", () =>
+        $mqttConfiguration.set({
+          host: mqttHostInput.value,
+          port: parseInt(mqttPortInput.value),
+          username: mqttUsernameInput.value,
+          password: mqttPasswordInput.value,
+        })
+      );
+    }
+  );
+  $mqttConfiguration.subscribe((config) => {
+    mqttHostInput.value = config.host;
+    mqttPortInput.value = config.port.toString();
+    mqttUsernameInput.value = config.username;
+    mqttPasswordInput.value = config.password;
+  });
+</script>

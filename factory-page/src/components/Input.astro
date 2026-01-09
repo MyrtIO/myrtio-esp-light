@@ -1,0 +1,166 @@
+---
+import EyeIcon from "./icons/Eye.astro";
+
+interface Props {
+  type: "text" | "password" | "number" | "color";
+  name: string;
+  value?: string;
+  placeholder?: string;
+}
+
+const { type, name, value = "", placeholder = "" } = Astro.props;
+const isPassword = type === "password";
+const isColor = type === "color";
+const hex = value.startsWith("#") ? value.slice(1) : value;
+---
+
+<div class="input" data-input-type={type}>
+  {
+    isColor && (
+        <div data-color-preview style={`background: #${hex}`} />
+      <input data-color-input type="color" value={hex} />
+    )
+  }
+  <input
+    name={name}
+    type={isColor ? "text" : type}
+    value={value}
+    placeholder={placeholder}
+    class={isColor ? "_padded" : ""}
+    autocomplete="off"
+    data-input-value
+  />
+  {
+    isPassword && (
+      <button type="button" class="input-toggle" data-toggle-password>
+        <EyeIcon />
+      </button>
+    )
+  }
+</div>
+
+<script>
+  const colorInputs = document.querySelectorAll("[data-input-type='color']");
+  colorInputs.forEach((input) => {
+    const colorInput = input.querySelector<HTMLInputElement>("[data-color-input]")!;
+    const colorPreview = input.querySelector<HTMLElement>("[data-color-preview]")!;
+    const inputNode = input.querySelector<HTMLInputElement>("[data-input-value]")!;
+    colorInput.addEventListener("input", (e: Event) => {
+      const value = (e.target as HTMLInputElement).value;
+      inputNode.value = value.slice(1).toUpperCase();
+      colorPreview.style.background = `#${value.slice(1).toUpperCase()}`;
+    });
+    colorInput.addEventListener("change", (e: Event) => {
+      inputNode.dispatchEvent(new Event("change"));
+    });
+
+    inputNode.addEventListener("change", (e: Event) => {
+      let value = (e.target as HTMLInputElement).value;
+      if (value.startsWith("#")) {
+        value = value.slice(1);
+      }
+      inputNode.value = value.toUpperCase();
+      const hex = `#${value}`.toLowerCase();
+      colorPreview.style.background = hex;
+      colorInput.value = hex;
+    });
+  });
+</script>
+
+<style lang="scss">
+  .input {
+    display: flex;
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .input:focus-within {
+    transition: all 0s;
+    border-color: var(--color-accent);
+    background: var(--color-bg-inputHover);
+  }
+
+  .input input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-l);
+    font-weight: 500;
+    padding: var(--space-m) var(--space-l);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  .input input::placeholder {
+    color: #444;
+  }
+
+  .input input[type="number"]::-webkit-outer-spin-button,
+  .input input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .input input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  .input-toggle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    user-select: none;
+    background: transparent;
+    border: none;
+    transition: color 0.2s;
+
+    &:focus-visible {
+      border: 1px solid var(--color-accent);
+    }
+  }
+
+  .input-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  .input-toggle:hover {
+    color: var(--color-text-primary);
+  }
+
+  .input [data-color-input] {
+    opacity: 0;
+  }
+
+  .input [data-color-input],
+  .input [data-color-preview] {
+    position: absolute;
+    top: 7.5px;
+    left: 14px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    
+  }
+
+  .input input._padded {
+    padding-left: 55px;
+  }
+</style>

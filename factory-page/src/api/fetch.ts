@@ -3,7 +3,7 @@ import type {
   LightConfiguration,
   LightTestRequest,
   SystemInformation,
-} from "../models";
+} from "../model/types";
 import type { ApiService, ProgressCallback } from "./interface";
 import { Mutex } from "../utils/mutex";
 import { sleep } from "../utils/sleep";
@@ -21,7 +21,6 @@ export class FetchApiService implements ApiService {
     onProgress: ProgressCallback
   ): Promise<void> {
     return this.withLock(async () => {
-      // Read file as ArrayBuffer to ensure raw binary is sent (not multipart)
       const arrayBuffer = await file.arrayBuffer();
 
       return new Promise((resolve, reject) => {
@@ -53,7 +52,7 @@ export class FetchApiService implements ApiService {
 
   async bootSystem(): Promise<void> {
     return this.withLock(async () => {
-      let response = await fetch(`${this.baseUrl}/boot`, {
+      const response = await fetch(`${this.baseUrl}/boot`, {
         method: "POST",
       });
       if (!response.ok) {

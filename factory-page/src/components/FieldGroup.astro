@@ -1,0 +1,33 @@
+---
+import Typography from "./Typography.astro";
+
+interface Props {
+  title?: string;
+  columns?: 2 | 3;
+}
+
+const { title, columns = 2 } = Astro.props;
+---
+
+<div class="fieldGroup">
+  {title && <Typography variant="label" as="label">{title}</Typography>}
+  <div class:list={["fieldGroup-grid", columns === 3 && "_cols3"]}>
+    <slot />
+  </div>
+</div>
+
+<style>
+  .fieldGroup {
+    margin-bottom: var(--space-xl);
+  }
+
+  .fieldGroup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-l);
+  }
+
+  .fieldGroup-grid._cols3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+</style>

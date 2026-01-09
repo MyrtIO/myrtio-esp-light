@@ -1,0 +1,70 @@
+---
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface Props {
+  name: string;
+  options: SelectOption[];
+  value?: string;
+}
+
+const { name, options, value = "" } = Astro.props;
+---
+
+<div class="select">
+  <select name={name} data-field={name}>
+    {
+      options.map((opt) => (
+        <option value={opt.value} selected={opt.value === value}>
+          {opt.label}
+        </option>
+      ))
+    }
+  </select>
+  <div class="select-chevron"></div>
+</div>
+
+<style>
+  .select {
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .select:focus-within {
+    border-color: var(--color-accent);
+    background: var(--color-bg-inputHover);
+  }
+
+  .select select {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-l);
+    font-weight: 500;
+    padding: var(--space-m) var(--space-l);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+    cursor: pointer;
+  }
+
+  .select-chevron {
+    position: absolute;
+    right: var(--space-l);
+    top: 50%;
+    width: 10px;
+    height: 6px;
+    background-color: var(--color-text-muted);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+</style>

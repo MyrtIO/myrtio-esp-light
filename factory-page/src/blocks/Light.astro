@@ -1,0 +1,134 @@
+---
+import FieldGroup from "../components/FieldGroup.astro";
+import Input from "../components/Input.astro";
+import RangeSlider from "../components/RangeSlider.astro";
+import Select from "../components/Select.astro";
+import Typography from "../components/Typography.astro";
+import { colorOrderOptions } from "../model/constants";
+import ColorPill from "../components/ColorPill.astro";
+---
+
+<div id="lightForm">
+  <Typography variant="headingL" as="h2">Освещение</Typography>
+
+  <FieldGroup>
+    <div>
+      <Typography variant="label" as="label">Длина</Typography>
+      <Input name="led_count" type="number" placeholder="60" />
+    </div>
+    <div>
+      <Typography variant="label" as="label">Отступ</Typography>
+      <Input name="skip_leds" type="number" placeholder="0" />
+    </div>
+  </FieldGroup>
+
+  <hr />
+
+  <FieldGroup>
+    <div>
+      <Typography variant="label" as="label">Порядок цветов</Typography>
+      <Select name="color_order" options={colorOrderOptions} />
+    </div>
+    <div>
+      <Typography variant="label" as="label">Коррекция</Typography>
+      <Input name="color_correction" type="color" value="FFB0A0" />
+    </div>
+  </FieldGroup>
+
+  <Typography variant="label" as="label">Тест</Typography>
+  <div class="lightForm-test">
+    <ColorPill id="test-red" label="Красный" color="#FF3333" />
+    <ColorPill id="test-green" label="Зелёный" color="#00FF94" />
+    <ColorPill id="test-blue" label="Синий" color="#0088FF" />
+    <ColorPill id="test-white" label="Белый" color="#FFFFFF" />
+  </div>
+
+  <hr />
+
+  <RangeSlider
+    label="Лимит яркости"
+    nameMin="brightness_min"
+    nameMax="brightness_max"
+    min={0}
+    max={255}
+  />
+</div>
+
+<script>
+  import type { ColorOrder } from "../model/types";
+  import { $lightConfiguration } from "../model/store";
+  import { createElementSeeker } from "../utils/dom";
+  import { parseColor, u32toHex } from "../utils/hex-color";
+
+  const form = document.getElementById("lightForm") as HTMLFormElement;
+  if (!form) {
+    throw new Error("Light form not found");
+  }
+
+  const $ = createElementSeeker(form);
+
+  const ledCountInput = $("led_count");
+  const skipLedsInput = $("skip_leds");
+  const colorOrderInput = $<HTMLSelectElement>("color_order");
+  const colorCorrectionInput = $("color_correction");
+  const brightnessMinInput = $("brightness_min");
+  const brightnessMaxInput = $("brightness_max");
+
+  [ledCountInput, skipLedsInput].forEach((input) => {
+    input.addEventListener("keyup", () =>
+      $lightConfiguration.set((prev) => ({
+        ...prev,
+        led_count: parseInt(ledCountInput.value, 10),
+        skip_leds: parseInt(skipLedsInput.value, 10),
+        color_correction: parseInt(colorCorrectionInput.value, 16),
+      }))
+    );
+  });
+
+  colorOrderInput.addEventListener("change", () => {
+    $lightConfiguration.set((prev) => ({
+      ...prev,
+      color_order: colorOrderInput.value as ColorOrder,
+    }));
+  });
+
+  colorCorrectionInput.addEventListener("change", () => {
+    setTimeout(() => {
+      $lightConfiguration.set((prev) => ({
+        ...prev,
+        color_correction: parseColor(colorCorrectionInput.value),
+      }));
+    }, 10);
+  });
+
+  [brightnessMinInput, brightnessMaxInput].forEach((input) => {
+    input.addEventListener("change", () => {
+      $lightConfiguration.set((prev) => ({
+        ...prev,
+        brightness_min: parseInt(brightnessMinInput.value, 10),
+        brightness_max: parseInt(brightnessMaxInput.value, 10),
+      }));
+    });
+  });
+
+  $lightConfiguration.subscribe((light) => {
+    ledCountInput.value = light.led_count.toString();
+    skipLedsInput.value = light.skip_leds.toString();
+    colorOrderInput.value = light.color_order;
+    colorCorrectionInput.value = u32toHex(light.color_correction);
+    brightnessMinInput.value = light.brightness_min.toString();
+    brightnessMaxInput.value = light.brightness_max.toString();
+
+    // Dispatch input event to update range slider
+    brightnessMinInput.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+</script>
+
+<style lang="scss">
+  .lightForm {
+    &-test {
+      display: flex;
+      gap: var(--space-s);
+    }
+  }
+</style>

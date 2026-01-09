@@ -1,0 +1,172 @@
+---
+
+---
+
+<div id="systemBlock">
+  <div class="system-row">
+    <span class="system-label">Версия</span>
+    <span class="system-value" data-system-version>------</span>
+  </div>
+  <div class="system-row">
+    <span class="system-label">Дата сборки</span>
+    <span class="system-value" data-system-build-date>------</span>
+  </div>
+  <div class="system-row">
+    <span class="system-label">MAC</span>
+    <span class="system-value" data-system-mac-address>--:--:--:--:--:--</span>
+  </div>
+
+  <div class="system-actions">
+    <button type="button" class="system-button" data-ota-button
+      >Обновить прошивку</button
+    >
+    <button type="button" class="system-button _danger" data-boot-button
+      >Запустить</button
+    >
+  </div>
+
+  <input
+    type="file"
+    class="system-fileInput"
+    data-ota-file
+    accept=".bin"
+  />
+</div>
+
+<script>
+  import { $systemInformation } from "../model/store";
+  import type { MacAddress } from "../model/types";
+
+  const block = document.getElementById("systemBlock");
+  if (!block) {
+    throw new Error("System block not found");
+  }
+
+  const $ = <T extends Element>(name: string) => {
+    const element = block.querySelector<T>(`[data-${name}]`);
+    if (!element) {
+      throw new Error(
+        `Element with name data-${name} not found in system block`
+      );
+    }
+    return element;
+  };
+
+  const buildVersion = $("system-version");
+  const buildDate = $("system-build-date");
+  const macAddress = $("system-mac-address");
+
+  const otaButton = $("ota-button");
+  const bootButton = $("boot-button");
+  const otaFile = $("ota-file");
+
+  $systemInformation.subscribe((info) => {
+    const [commitHashValue, buildDateValue] = parseBuildVersion(
+      info.build_version
+    );
+    buildVersion.textContent = commitHashValue;
+    buildDate.textContent = buildDateValue.toLocaleString();
+    macAddress.textContent = formatMacAddress(info.mac_address);
+  });
+
+  function parseBuildVersion(version: string): [string, Date] {
+    const hash = version.slice(0, 7);
+    const date = version.slice(8);
+    return [hash, new Date(date)];
+  }
+
+  function formatMacAddress(macAddress: MacAddress): string {
+    return macAddress
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join(":");
+  }
+</script>
+
+<style>
+  .system {
+    margin-top: 40px;
+    margin-bottom: 120px;
+    border-top: 1px solid var(--color-border-light);
+    padding-top: var(--space-xxl);
+    position: relative;
+  }
+
+  .system._disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .system-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-s) 0;
+    font-size: var(--font-size-m);
+  }
+
+  .system-label {
+    color: var(--color-text-muted);
+  }
+
+  .system-value {
+    font-family: monospace;
+    color: var(--color-text-primary);
+  }
+
+  .system-actions {
+    display: flex;
+    gap: var(--space-m);
+    margin-top: var(--space-xl);
+  }
+
+  .system-button {
+    flex: 1;
+    padding: var(--space-m);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-s);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .system-button:hover {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+  }
+
+  .system-button._danger:hover {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+
+  .system-fileInput {
+    display: none;
+  }
+
+  .system-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-bg-input);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .system-progress._visible {
+    opacity: 1;
+  }
+
+  .system-progressFill {
+    height: 100%;
+    background: var(--color-accent);
+    width: 0%;
+    transition: width 0.2s;
+  }
+</style>

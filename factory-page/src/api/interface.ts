@@ -3,7 +3,7 @@ import type {
   LightConfiguration,
   LightTestRequest,
   SystemInformation,
-} from "../models";
+} from "../model/types";
 
 export type ProgressCallback = (progress: number) => void;
 

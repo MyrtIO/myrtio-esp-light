@@ -1,0 +1,61 @@
+---
+interface Props {
+  variant: "headingL" | "headingM" | "headingS" | "label" | "textM";
+  as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "span" | "div" | "label";
+}
+
+const { as = "p", variant, ...rest } = Astro.props;
+
+const Component = as;
+---
+
+<Component class:list={["typography", `_${variant}`]} {...rest}>
+  <slot />
+</Component>
+
+<style>
+  .typography {
+    font-family: var(--font-family);
+  }
+
+  .typography._headingL {
+    font-size: var(--font-size-xxl);
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--color-text-primary);
+    margin-top: var(--space-xs);
+    margin-bottom: 18px;
+  }
+
+  .typography._headingM {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-m);
+  }
+
+  .typography._headingS {
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-s);
+  }
+
+  .typography._label {
+    display: block;
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-s);
+  }
+
+  .typography._textM {
+    font-size: var(--font-size-l);
+    color: var(--color-text-primary);
+  }
+</style>
