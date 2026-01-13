@@ -1267,6 +1267,8 @@ dependencies = [
 [[package]]
 name = "myrtio-light-composer"
 version = "0.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3387feac6494997cc7185d7ce996d177aa0f73525099389caf6dc2e338e5286e"
 dependencies = [
  "critical-section",
  "embassy-time",
@@ -1282,8 +1284,6 @@ version = "0.0.0"
 [[package]]
 name = "myrtio-mqtt"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3828735611d111ec2f5e325a6b267e6b4f0478c8d6142a193a54c893de2c7ac"
 dependencies = [
  "embassy-futures",
  "embassy-net",

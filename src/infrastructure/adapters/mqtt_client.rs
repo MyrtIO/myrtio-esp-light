@@ -96,8 +96,13 @@ async fn run_mqtt_client(
     println!("mqtt: TCP socket connected");
 
     let transport = TcpTransport::new(socket, Duration::from_secs(30));
-    let options =
-        MqttOptions::new(device_id).with_keep_alive(Duration::from_secs(15));
+    let mut options = MqttOptions::new(device_id).with_keep_alive(Duration::from_secs(15));
+    if !mqtt_config.username.is_empty() {
+        options = options.with_credentials(
+            mqtt_config.username.as_str(),
+            mqtt_config.password.as_str(),
+        );
+    }
     let mqtt: MqttClient<_, MQTT_MAX_TOPICS, MQTT_BUF_SIZE> =
         MqttClient::new(transport, options);
 
