@@ -17,8 +17,8 @@ path = "src/bin/factory.rs"
 [dependencies]
 myrtio-light-factory-page = { path = "factory-page" }
 
-myrtio-light-composer = { path = "../light-composer" }
-myrtio-mqtt = "0.1.2"
+myrtio-light-composer = "0.6.4"
+myrtio-mqtt = { path = "../myrtio-mqtt" }
 myrtio-mqtt-homeassistant = "0.1.2"
 
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32"] }
@@ -133,3 +133,6 @@ redundant_clone = "warn"
 debug_assert_with_mut_call = "warn"
 unused_peekable = "warn"
 large_stack_arrays = "allow"
+
+[patch.crates-io]
+myrtio-mqtt = { path = "../myrtio-mqtt" }
